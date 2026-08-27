@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.19.0] - 2026-08-26
+
+### Added
+
+- Lossless response capture: `create-response` and `get-response` accept
+  `:lossless? true` to add the complete parsed SDK response under
+  `:openai/raw` alongside the existing curated top-level map. Additive —
+  the default curated shape is unchanged.
+- Advanced client configuration: `client` accepts `:admin-api-key`,
+  `:headers`, `:proxy`, `:executor`, `:stream-handler-executor`,
+  `:log-level`, and `:workload-identity`, layered on the existing
+  `:api-key`/`:organization`/`:project`/`:base-url`/`:timeout-ms`/
+  `:max-retries`/`:azure-service-version` options.
+- Optional blocking Amazon Bedrock transport in `openai.bedrock`
+  (require it explicitly to add the `:bedrock` alias): `client` builds a
+  Bedrock-backed `OpenAIClient` from `:endpoint` (`:mantle` or `:runtime`),
+  `:aws-region`, and the standard AWS credential options, or a zero-argument
+  Clojure function/`Supplier` token provider.
+- Realtime reliability: `connect` gains `:auto-reconnect?` with exponential
+  backoff and jitter (`:reconnect-base-delay-ms`, `:reconnect-max-delay-ms`,
+  `:reconnect-jitter`, `:reconnect-max-attempts`,
+  `:reconnect-max-duration-ms`) and idle detection (`:heartbeat-interval-ms`,
+  `:idle-timeout-ms`), which emits a `:connection.idle-timeout` event when no
+  activity is observed within the configured window.
+- Lazy pagination siblings — `list-models-lazy`, `list-chat-completions-lazy`,
+  `list-input-items-lazy` (and other list operations) — return a lazy
+  sequence honoring optional `:max-items` and `:max-pages`, alongside the
+  existing eager `list-*` functions that follow every page automatically.
+- Local wire-level protocol fixtures for testing request/response shapes
+  without live API calls.
+- `examples/` cookbook: batch processing, realtime, and tool-calling
+  production workflow walkthroughs.
+
 ## [0.18.2] - 2026-08-17
 
 ### Changed
