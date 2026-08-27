@@ -14,7 +14,8 @@
                                                    ChatSessionWorkflowParam$StateVariables
                                                    ChatSessionWorkflowParam$Tracing
                                                    ThreadDeleteResponse ThreadListItemsParams
-                                                   ThreadListItemsParams$Order ThreadListParams
+                                                   ThreadListItemsParams$Order ThreadListItemsPage
+                                                   ThreadListParams ThreadListPage
                                                    ThreadListParams$Order)
            (com.openai.services.blocking.beta ChatKitService)
            (com.openai.services.blocking.beta.chatkit SessionService ThreadService)))
@@ -177,3 +178,37 @@
            ^ThreadService svc (.threads chatkit)]
        (mapv (fn [^ChatKitThreadItemList$Data item] (impl/sdk-object->clj item))
              (impl/all-pages (.listItems svc (.build b))))))))
+
+(defn list-threads-lazy
+  "Lazy sibling of `list-threads`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-threads-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^ChatKitService chatkit (.. client (beta) (chatkit))
+           ^ThreadService svc (.threads chatkit)
+           b (ThreadListParams/builder)
+           _ (when-let [after (:after opts)] (.after b ^String after))
+           _ (when-let [before (:before opts)] (.before b ^String before))
+           _ (when-let [limit (:limit opts)] (.limit b (long limit)))
+           _ (when-let [order (:order opts)] (.order b (ThreadListParams$Order/of (name order))))
+           _ (when-let [user (:user opts)] (.user b ^String user))
+           ^ThreadListPage page (.list svc (.build b))]
+       (map chatkit-thread->map (impl/lazy-pages page opts))))))
+
+(defn list-thread-items-lazy
+  "Lazy sibling of `list-thread-items`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client ^String thread-id]
+   (list-thread-items-lazy client thread-id {}))
+  ([^OpenAIClient client ^String thread-id opts]
+   (impl/with-api-errors
+     (let [^ChatKitService chatkit (.. client (beta) (chatkit))
+           ^ThreadService svc (.threads chatkit)
+           b (ThreadListItemsParams/builder)
+           _ (.threadId b thread-id)
+           _ (when-let [after (:after opts)] (.after b ^String after))
+           _ (when-let [before (:before opts)] (.before b ^String before))
+           _ (when-let [limit (:limit opts)] (.limit b (long limit)))
+           _ (when-let [order (:order opts)] (.order b (ThreadListItemsParams$Order/of (name order))))
+           ^ThreadListItemsPage page (.listItems svc (.build b))]
+       (map (fn [^ChatKitThreadItemList$Data item] (impl/sdk-object->clj item))
+            (impl/lazy-pages page opts))))))

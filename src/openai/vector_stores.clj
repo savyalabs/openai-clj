@@ -164,6 +164,15 @@
           ^VectorStoreDeleted d (.delete svc id)]
       {:id (.id d) :deleted (.deleted d)})))
 
+(defn list-lazy
+  "Lazy sibling of `list`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^VectorStoreService svc (.vectorStores client)
+           ^VectorStoreListPage page (.list svc (->list-params opts))]
+       (map vector-store->map (impl/lazy-pages page opts))))))
+
 (defn- ->comparison-filter ^ComparisonFilter [{:keys [type key value]}]
   (let [^ComparisonFilter$Builder b (ComparisonFilter/builder)]
     (when-not type (impl/missing-key! :type))
@@ -296,6 +305,15 @@
            ^FileListPage page (.list svc (->file-list-params store-id opts))]
        (mapv vector-store-file->map (impl/all-pages page))))))
 
+(defn list-files-lazy
+  "Lazy sibling of `list-files`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client ^String store-id] (list-files-lazy client store-id {}))
+  ([^OpenAIClient client ^String store-id opts]
+   (impl/with-api-errors
+     (let [^FileService svc (.files (.vectorStores client))
+           ^FileListPage page (.list svc (->file-list-params store-id opts))]
+       (map vector-store-file->map (impl/lazy-pages page opts))))))
+
 (defn delete-file [^OpenAIClient client ^String store-id ^String file-id]
   (impl/with-api-errors
     (let [^FileService svc (.files (.vectorStores client))
@@ -373,6 +391,17 @@
            ^FileBatchListFilesPage page
            (.listFiles svc (->batch-list-params store-id batch-id opts))]
        (mapv vector-store-file->map (impl/all-pages page))))))
+
+(defn file-batch-list-files-lazy
+  "Lazy sibling of `file-batch-list-files`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client ^String store-id ^String batch-id]
+   (file-batch-list-files-lazy client store-id batch-id {}))
+  ([^OpenAIClient client ^String store-id ^String batch-id opts]
+   (impl/with-api-errors
+     (let [^FileBatchService svc (.fileBatches (.vectorStores client))
+           ^FileBatchListFilesPage page
+           (.listFiles svc (->batch-list-params store-id batch-id opts))]
+       (map vector-store-file->map (impl/lazy-pages page opts))))))
 
 (def file-batch-create create-file-batch)
 (def file-batch-retrieve retrieve-file-batch)

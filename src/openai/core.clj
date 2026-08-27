@@ -1248,6 +1248,15 @@
     (let [^ModelService svc (.models client)]
       (model->map (.retrieve svc model-id)))))
 
+(defn list-models-lazy
+  "Lazy sibling of `list-models`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-models-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^ModelService svc (.models client)
+           ^ModelListPage p (.list svc)]
+       (map model->map (impl/lazy-pages p opts))))))
+
 (defn- ->model-delete-params ^ModelDeleteParams [^String model-id]
   (-> (ModelDeleteParams/builder)
       (.model model-id)
@@ -1782,6 +1791,16 @@
           ^ChatCompletionService svc (.completions chat)]
       (deleted-chat-completion->map (.delete svc completion-id)))))
 
+(defn list-chat-completions-lazy
+  "Lazy sibling of `list-chat-completions`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-chat-completions-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^ChatService chat (.chat client)
+           ^ChatCompletionService svc (.completions chat)
+           ^ChatCompletionListPage p (.list svc (->chat-completion-list-params opts))]
+       (map chat-completion->map (impl/lazy-pages p opts))))))
+
 (defn list-chat-completion-messages
   "List messages from a stored chat completion. It follows each page automatically."
   ([^OpenAIClient client ^String completion-id]
@@ -1854,6 +1873,17 @@
     (let [^ResponseService svc (.responses client)]
       (.delete svc response-id))
     nil))
+
+(defn list-input-items-lazy
+  "Lazy sibling of `list-input-items`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client ^String response-id]
+   (list-input-items-lazy client response-id {}))
+  ([^OpenAIClient client ^String response-id opts]
+   (impl/with-api-errors
+     (let [^ResponseService svc (.responses client)
+           ^InputItemService items (.inputItems svc)
+           ^InputItemListPage p (.list items (->input-item-list-params response-id opts))]
+       (map response-item->map (impl/lazy-pages p opts))))))
 
 (defn cancel-response
   "Cancel an in-progress response by id and return the response map."
@@ -1981,6 +2011,15 @@
           ^FileDeleted d (.delete svc file-id)]
       {:id (.id d) :deleted (.deleted d)})))
 
+(defn list-files-lazy
+  "Lazy sibling of `list-files`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-files-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^FileService svc (.files client)
+           ^FileListPage p (.list svc (->file-list-params opts))]
+       (map file->map (impl/lazy-pages p opts))))))
+
 ;; Batches
 
 (defn- ->batch-metadata ^BatchCreateParams$Metadata [m]
@@ -2073,3 +2112,12 @@
      (let [^BatchService svc (.batches client)
            ^BatchListPage p (.list svc (->batch-list-params opts))]
        (mapv batch->map (impl/all-pages p))))))
+
+(defn list-batches-lazy
+  "Lazy sibling of `list-batches`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-batches-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^BatchService svc (.batches client)
+           ^BatchListPage p (.list svc (->batch-list-params opts))]
+       (map batch->map (impl/lazy-pages p opts))))))
