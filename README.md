@@ -32,6 +32,23 @@ Tracks [`com.openai/openai-java` 4.51.0](https://github.com/openai/openai-java/r
 
 ## Providers
 
+Amazon Bedrock support is optional. Add the `:bedrock` alias to use the
+blocking Bedrock transport:
+
+```clojure
+(require '[openai.bedrock :as bedrock])
+
+(def client
+  (bedrock/client {:endpoint :runtime
+                   :aws-region "us-west-2"
+                   :aws-profile "default"}))
+```
+
+The alias adds `com.openai/openai-java-bedrock` and its AWS SDK dependencies;
+default consumers do not load them. Credentials can also be supplied with
+`:aws-access-key-id`, `:aws-secret-access-key`, and `:aws-session-token`, or
+discovered through the AWS credential chain.
+
 Every function takes a client. The client `:base-url` points to an endpoint
 that uses the OpenAI wire protocol. The same code works with these providers:
 
