@@ -3,6 +3,7 @@
             [openai.core :as openai]
             [openai.impl :as impl])
   (:import (com.openai.client OpenAIClient)
+           (com.openai.core JsonValue)
            (com.openai.models ResponseFormatJsonSchema
                               ResponseFormatJsonSchema$JsonSchema
                               ResponseFormatJsonSchema$JsonSchema$Schema)
@@ -103,6 +104,9 @@
 
 (defn- response->map [r]
   (#'openai/response->map r))
+
+(defn- response->map-with-options [r opts]
+  (#'openai/response->map r opts))
 
 (defn- response-item->map [item]
   (#'openai/response-item->map item))
@@ -1276,6 +1280,26 @@
   (let [m (response->map (response [(function-call-item "{not json}")]))]
     (is (= "{not json}" (-> m :output first :arguments)))
     (is (= "" (:text m)))))
+
+(deftest response-map-preserves-unknown-fields-when-lossless
+  (let [r (-> (response [])
+              .toBuilder
+              (.putAdditionalProperty "future_field" (JsonValue/from "preserved"))
+              (.build))
+        curated (response->map r)
+        lossless (response->map-with-options r {:lossless? true})]
+    (is (= {:id "resp_123"
+            :model "gpt-5.2"
+            :output []
+            :text ""
+            :created-at 1234.5
+            :status :completed
+            :usage {:input-tokens 10
+                    :input-tokens-details {:cache-write-tokens 0 :cached-tokens 0}
+                    :output-tokens 20
+                    :total-tokens 30}}
+           curated))
+    (is (= "preserved" (get-in lossless [:openai/raw :future-field])))))
 
 (deftest maps-model-to-clojure
   (let [m (model->map (-> (Model/builder)
