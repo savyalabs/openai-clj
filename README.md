@@ -64,6 +64,7 @@ provider-specific extensions outside the OpenAI protocol.
 
 ## Documentation
 
+- [Examples cookbook](examples/README.md)
 - [Tools](doc/tools.md)
 - [Streaming](doc/streaming.md)
 - [Embeddings, Files and Batches](doc/embeddings-files-batches.md)
