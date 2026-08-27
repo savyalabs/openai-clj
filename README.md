@@ -196,6 +196,9 @@ Responses tools cover `:function`, `:web-search`, `:file-search`,
 `:tool-search-output`, and `:mcp-approval-response` items.
 
 Response maps preserve all SDK output-item variants as kebab-case Clojure maps.
+Pass `:lossless? true` to `create-response`, or as the optional argument to
+`get-response`, `cancel-response`, and `compact`, to retain the curated map and
+also include the SDK's complete parsed JSON under `:openai/raw`.
 `openai/stream` normalizes each Responses stream event. It calls its callback
 with the resulting `:type`-keyed map. `openai/stream-text` wraps text deltas.
 
@@ -338,6 +341,11 @@ WebSocket, session, client-secret, transcription, translation, and SIP call
 helpers. `openai.content-provenance-checks` contains Content Provenance Checks.
 `openai.graders` maps to the stable grader-model service. The service exposes
 no operations in SDK 4.51.0.
+
+List functions remain eager by default. Additive lazy siblings cover models,
+files, batches, stored Chat Completions, response input items, vector stores and
+their files/batches, and ChatKit threads/items. Their option maps accept
+`:max-items` and `:max-pages` to bound realization.
 
 The library wraps each non-deprecated operation that the Java SDK exposes. This
 includes beta ChatKit and beta Responses. The Assistants API (assistants/threads/runs) is not
