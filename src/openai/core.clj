@@ -1078,9 +1078,12 @@
   (cond-> {}
     (.isPresent (.reason d)) (assoc :reason (impl/->keyword (.asString ^com.openai.models.responses.Response$IncompleteDetails$Reason (.get (.reason d)))))))
 
-(defn- response->map [^Response r]
-  (let [items (mapv output-item->map (.output r))]
-    (cond-> {:id (.id r)
+(defn- response->map
+  ([^Response r] (response->map r {}))
+  ([^Response r opts]
+   (let [items (mapv output-item->map (.output r))]
+    (impl/preserve-raw
+     (cond-> {:id (.id r)
              :model (.asString ^ResponsesModel (.model r))
              :output items
              :text (impl/output-text items)
@@ -1094,7 +1097,8 @@
       (.isPresent (.promptCacheRetention r))
       (assoc :prompt-cache-retention
              (.asString ^com.openai.models.responses.Response$PromptCacheRetention
-                        (.get (.promptCacheRetention r)))))))
+                        (.get (.promptCacheRetention r)))))
+     r opts))))
 
 (defn- schema-value [schema key]
   (if (contains? schema key)
@@ -1165,6 +1169,9 @@
   Structured outputs: `:json-schema {:name \"...\" :schema {...} :strict true
   :description \"...\"}`.
 
+  Set `:lossless? true` to add the complete parsed SDK response under
+  `:openai/raw` while retaining the curated top-level map.
+
   Tools: `{:type :function :name \"...\" :description \"...\" :strict true
   :parameters {...}}`, `{:type :web-search}`, `{:type :file-search
   :vector-store-ids [...]}`, or `{:type :code-interpreter :container \"...\"}`.
@@ -1179,7 +1186,7 @@
   `:unknown`."
   [^OpenAIClient client req]
   (impl/with-api-errors
-    (response->map (.create (.responses client) (->params req)))))
+    (response->map (.create (.responses client) (->params req)) req)))
 
 (defn count-input-tokens
   "Count input tokens for a Responses request shape. It accepts the same request
@@ -1817,11 +1824,14 @@
          (when on-text (on-text content)))))))
 
 (defn get-response
-  "Retrieve one stored response by id as a response map."
-  [^OpenAIClient client ^String response-id]
-  (impl/with-api-errors
-    (let [^ResponseService svc (.responses client)]
-      (response->map (.retrieve svc response-id)))))
+  "Retrieve one stored response by id as a response map. Pass `{:lossless? true}`
+  as the optional third argument to include `:openai/raw`."
+  ([^OpenAIClient client ^String response-id]
+   (get-response client response-id {}))
+  ([^OpenAIClient client ^String response-id opts]
+   (impl/with-api-errors
+     (let [^ResponseService svc (.responses client)]
+       (response->map (.retrieve svc response-id) opts)))))
 
 (defn- ->input-item-list-params ^InputItemListParams
   [^String response-id {:keys [after include limit order]}]
@@ -1856,11 +1866,14 @@
     nil))
 
 (defn cancel-response
-  "Cancel an in-progress response by id and return the response map."
-  [^OpenAIClient client ^String response-id]
-  (impl/with-api-errors
-    (let [^ResponseService svc (.responses client)]
-      (response->map (.cancel svc response-id)))))
+  "Cancel an in-progress response by id and return the response map. Pass
+  `{:lossless? true}` as the optional third argument to include `:openai/raw`."
+  ([^OpenAIClient client ^String response-id]
+   (cancel-response client response-id {}))
+  ([^OpenAIClient client ^String response-id opts]
+   (impl/with-api-errors
+     (let [^ResponseService svc (.responses client)]
+       (response->map (.cancel svc response-id) opts)))))
 
 (defn- compacted-response->map [^com.openai.models.responses.CompactedResponse r]
   (let [items (mapv output-item->map (.output r))]
@@ -1871,14 +1884,18 @@
      :created-at (.createdAt r)}))
 
 (defn compact
-  "Compact a previous response by id and return the compacted response map."
-  [^OpenAIClient client ^String response-id]
-  (impl/with-api-errors
-    (let [^ResponseService svc (.responses client)]
-      (compacted-response->map
-       (.compact svc (-> (com.openai.models.responses.ResponseCompactParams/builder)
-                         (.previousResponseId response-id)
-                         (.build)))))))
+  "Compact a previous response by id and return the compacted response map.
+  Pass `{:lossless? true}` as the optional third argument to include
+  `:openai/raw`."
+  ([^OpenAIClient client ^String response-id]
+   (compact client response-id {}))
+  ([^OpenAIClient client ^String response-id opts]
+   (impl/with-api-errors
+     (let [^ResponseService svc (.responses client)
+           r (.compact svc (-> (com.openai.models.responses.ResponseCompactParams/builder)
+                               (.previousResponseId response-id)
+                               (.build)))]
+       (impl/preserve-raw (compacted-response->map r) r opts)))))
 
 ;; Files
 

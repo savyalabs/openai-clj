@@ -211,6 +211,13 @@
        x))
    (json/read-value (json/write-value-as-string value) json-mapper)))
 
+(defn preserve-raw
+  "Attach the complete parsed SDK object under `:openai/raw` when requested."
+  [curated value {:keys [lossless?]}]
+  (if lossless?
+    (assoc curated :openai/raw (sdk-object->clj value))
+    curated))
+
 (defn output-text [items]
   (apply str
          (for [item items
