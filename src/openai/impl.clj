@@ -211,6 +211,13 @@
        x))
    (json/read-value (json/write-value-as-string value) json-mapper)))
 
+(defn preserve-raw
+  "Attach the complete parsed SDK object under `:openai/raw` when requested."
+  [curated value {:keys [lossless?]}]
+  (if lossless?
+    (assoc curated :openai/raw (sdk-object->clj value))
+    curated))
+
 (defn output-text [items]
   (apply str
          (for [item items
@@ -223,3 +230,30 @@
   "Realize each element from all pages of an SDK *ListPage with its autoPager."
   [page]
   (vec (AutoPager. ^Page page nil)))
+
+(defn lazy-pages
+  "Return a lazy sequence of elements from an SDK *ListPage.
+
+  `:max-items` limits elements consumed and `:max-pages` limits pages
+  traversed. Both bounds are optional and are excluded from SDK request opts."
+  [^Page page {:keys [max-items max-pages]}]
+  (when (and max-items (neg? (long max-items)))
+    (throw (ex-info ":max-items must be non-negative" {:max-items max-items})))
+  (when (and max-pages (neg? (long max-pages)))
+    (throw (ex-info ":max-pages must be non-negative" {:max-pages max-pages})))
+  (letfn [(items [item-seq ^Page page pages-left]
+            (lazy-seq
+              (if-let [s (seq item-seq)]
+                (cons (first s) (items (next s) page pages-left))
+                (when (and (.hasNextPage page)
+                           (or (nil? pages-left) (> pages-left 1)))
+                  (let [next-page (.nextPage page)]
+                    (pages next-page (when pages-left (dec pages-left))))))))
+          (pages [^Page page pages-left]
+            (lazy-seq
+              (when (and page (or (nil? pages-left) (pos? pages-left)))
+                (items (.items page) page pages-left))))]
+    (let [result (pages page max-pages)]
+      (if max-items
+        (take (long max-items) result)
+        result))))

@@ -32,8 +32,9 @@
                                                       ClientSecretCreateResponse)
            (java.net URLEncoder)
            (java.nio.charset StandardCharsets)
-           (java.util.concurrent LinkedBlockingQueue TimeUnit)
-           (okhttp3 MediaType OkHttpClient Request$Builder RequestBody
+           (java.util.concurrent Executors LinkedBlockingQueue ScheduledExecutorService
+                                  TimeUnit)
+           (okhttp3 MediaType OkHttpClient Request Request$Builder RequestBody
                     Response ResponseBody WebSocket WebSocketListener)))
 
 (set! *warn-on-reflection* true)
@@ -310,11 +311,14 @@
          (.reject (->reject-call-params call-id status-code))))
    nil))
 
-(defrecord RealtimeConnection [socket queue http owned-http?]
+(defrecord RealtimeConnection [socket queue http owned-http? work closed? scheduler]
   java.io.Closeable
   (close [_]
-    (when-let [^WebSocket ws @socket]
-      (.close ws 1000 "client closing"))
+    (when (compare-and-set! closed? false true)
+      (doseq [cancel @work] (cancel))
+      (when-let [^WebSocket ws @socket]
+        (.close ws 1000 "client closing")))
+    (when scheduler (.shutdownNow ^ScheduledExecutorService scheduler))
     (when owned-http?
       (-> ^OkHttpClient http .dispatcher .executorService .shutdown)
       (-> ^OkHttpClient http .connectionPool .evictAll))))
@@ -339,42 +343,122 @@
   apply backpressure: dispatch blocks until consumers make room, never dropping
   events silently."
   [{:keys [api-key client-secret okhttp-client queue-capacity
-           on-event on-open on-close on-error]
+           on-event on-open on-close on-error
+           auto-reconnect? reconnect-base-delay-ms reconnect-max-delay-ms
+           reconnect-jitter reconnect-max-attempts reconnect-max-duration-ms random-fn
+           heartbeat-interval-ms idle-timeout-ms now-fn schedule-fn
+           websocket-factory]
     :as opts}]
   (let [token (or client-secret api-key)]
     (when-not token (impl/missing-key! :api-key))
     (let [owned? (nil? okhttp-client)
-          ^OkHttpClient http (or okhttp-client (OkHttpClient.))
+          ^OkHttpClient http (or okhttp-client
+                                 (if heartbeat-interval-ms
+                                   (-> (OkHttpClient.) .newBuilder
+                                       (.pingInterval (long heartbeat-interval-ms)
+                                                      TimeUnit/MILLISECONDS)
+                                       (.build))
+                                   (OkHttpClient.)))
           queue (if queue-capacity
                   (LinkedBlockingQueue. (int queue-capacity))
                   (LinkedBlockingQueue.))
           socket (atom nil)
+          ^Request$Builder request-builder (Request$Builder.)
+          request (-> request-builder
+                      (.url ^String (ws-url opts))
+                      (.header "Authorization" ^String (str "Bearer " token))
+                      (.build))
+          closed? (atom false)
+          work (atom [])
+          now (or now-fn #(System/currentTimeMillis))
+          random (or random-fn rand)
+          scheduler (when (and (nil? schedule-fn)
+                               (or auto-reconnect? idle-timeout-ms))
+                     (Executors/newSingleThreadScheduledExecutor))
+          schedule (or schedule-fn
+                       (fn [delay-ms task]
+                         (let [future (.schedule ^ScheduledExecutorService scheduler
+                                                  ^Runnable task (long delay-ms)
+                                                  TimeUnit/MILLISECONDS)]
+                           #(.cancel future false))))
+          activity (atom (now))
+          idle-reported? (atom false)
+          reconnect-attempt (atom 0)
+          reconnect-start (atom nil)
+          retry-scheduled? (atom false)
+          listener-ref (atom nil)
+          factory (or websocket-factory
+                      (fn [^Request request ^WebSocketListener listener]
+                        (.newWebSocket http request listener)))
+          add-work! (fn [cancel] (swap! work conj cancel) cancel)
+          schedule-once! (fn [delay-ms task]
+                           (add-work! (schedule delay-ms
+                                                 (fn []
+                                                   (when-not @closed?
+                                                     (task))))))
+          reconnect! (fn []
+                       (let [attempt (swap! reconnect-attempt inc)
+                             started (or @reconnect-start (reset! reconnect-start (now)))
+                             within-duration? (or (nil? reconnect-max-duration-ms)
+                                                 (< (- (now) started)
+                                                    reconnect-max-duration-ms))]
+                         (when (and (or (nil? reconnect-max-attempts)
+                                        (<= attempt reconnect-max-attempts))
+                                    within-duration?)
+                           (let [base (long (or reconnect-base-delay-ms 1000))
+                                 ceiling (long (or reconnect-max-delay-ms 30000))
+                                 exponential (min ceiling (* base (long (Math/pow 2 (dec attempt)))))
+                                 jitter (double (or reconnect-jitter 0))
+                                 delay (long (max 0 (* exponential
+                                                     (+ 1 (* jitter (- (* 2 (random) 1)))))))]
+                             (reset! retry-scheduled? true)
+                             (schedule-once! delay
+                                              #(do
+                                                 (reset! retry-scheduled? false)
+                                                 (reset! socket (factory request @listener-ref))))))))
+          reconnect-on-drop! (fn [^WebSocket ws]
+                               (when (and auto-reconnect? (not @closed?) (= ws @socket)
+                                          (compare-and-set! retry-scheduled? false true))
+                                 (reconnect!)))
+          idle-check! (fn idle-check! []
+                        (when (and idle-timeout-ms
+                                   (>= (- (now) @activity) idle-timeout-ms)
+                                   (compare-and-set! idle-reported? false true))
+                          (dispatch! queue on-event {:type :connection.idle-timeout}))
+                        (when (and idle-timeout-ms (not @closed?))
+                          (schedule-once! (long idle-timeout-ms) idle-check!)))
           listener
           (proxy [WebSocketListener] []
             (onOpen [^WebSocket ws ^Response response]
+              (reset! activity (now))
+              (reset! idle-reported? false)
+              (reset! reconnect-attempt 0)
+              (reset! reconnect-start nil)
+              (reset! retry-scheduled? false)
+              (when idle-timeout-ms (schedule-once! (long idle-timeout-ms) idle-check!))
               (when on-open (on-open ws response)))
             (onMessage [^WebSocket _ ^String text]
+              (reset! activity (now))
+              (reset! idle-reported? false)
               (try
                 (dispatch! queue on-event (decode-server-event text))
                 (catch Throwable e
                   (when on-error (on-error e)))))
             (onClosing [^WebSocket ws code reason]
               (.close ws code reason))
-            (onClosed [^WebSocket _ code reason]
-              (when on-close (on-close {:code code :reason reason})))
-            (onFailure [^WebSocket _ ^Throwable error ^Response response]
+            (onClosed [^WebSocket ws code reason]
+              (when on-close (on-close {:code code :reason reason}))
+              (reconnect-on-drop! ws))
+            (onFailure [^WebSocket ws ^Throwable error ^Response response]
               (dispatch! queue on-event
                          {:type :connection.error
                           :error error
                           :status (when response (.code response))})
-              (when on-error (on-error error))))
-          ^Request$Builder request-builder (Request$Builder.)
-          request (-> request-builder
-                      (.url ^String (ws-url opts))
-                      (.header "Authorization" ^String (str "Bearer " token))
-                      (.build))]
-      (reset! socket (.newWebSocket http request listener))
-      (->RealtimeConnection socket queue http owned?))))
+              (when on-error (on-error error))
+              (reconnect-on-drop! ws)))]
+      (reset! listener-ref listener)
+      (reset! socket (factory request listener))
+      (->RealtimeConnection socket queue http owned? work closed? scheduler))))
 
 (defn send!
   "Encode and send a client event."

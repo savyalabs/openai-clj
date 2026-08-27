@@ -32,6 +32,23 @@ Tracks [`com.openai/openai-java` 4.51.0](https://github.com/openai/openai-java/r
 
 ## Providers
 
+Amazon Bedrock support is optional. Add the `:bedrock` alias to use the
+blocking Bedrock transport:
+
+```clojure
+(require '[openai.bedrock :as bedrock])
+
+(def client
+  (bedrock/client {:endpoint :runtime
+                   :aws-region "us-west-2"
+                   :aws-profile "default"}))
+```
+
+The alias adds `com.openai/openai-java-bedrock` and its AWS SDK dependencies;
+default consumers do not load them. Credentials can also be supplied with
+`:aws-access-key-id`, `:aws-secret-access-key`, and `:aws-session-token`, or
+discovered through the AWS credential chain.
+
 Every function takes a client. The client `:base-url` points to an endpoint
 that uses the OpenAI wire protocol. The same code works with these providers:
 
@@ -64,6 +81,7 @@ provider-specific extensions outside the OpenAI protocol.
 
 ## Documentation
 
+- [Examples cookbook](examples/README.md)
 - [Tools](doc/tools.md)
 - [Streaming](doc/streaming.md)
 - [Embeddings, Files and Batches](doc/embeddings-files-batches.md)
@@ -92,6 +110,11 @@ provider-specific extensions outside the OpenAI protocol.
                   :base-url "https://api.openai.com/v1"
                   :timeout-ms 60000
                   :max-retries 2}))
+
+The constructor also accepts `:admin-api-key`, `:headers`, `:proxy` (a
+`java.net.Proxy` or `{:host "..." :port 8080}`), `:executor`,
+`:stream-handler-executor`, `:log-level` (`:off`, `:info`, `:error`, or
+`:debug`), and a typed SDK `:workload-identity`.
 
 (openai/create-response
  client
@@ -173,6 +196,9 @@ Responses tools cover `:function`, `:web-search`, `:file-search`,
 `:tool-search-output`, and `:mcp-approval-response` items.
 
 Response maps preserve all SDK output-item variants as kebab-case Clojure maps.
+Pass `:lossless? true` to `create-response`, or as the optional argument to
+`get-response`, `cancel-response`, and `compact`, to retain the curated map and
+also include the SDK's complete parsed JSON under `:openai/raw`.
 `openai/stream` normalizes each Responses stream event. It calls its callback
 with the resulting `:type`-keyed map. `openai/stream-text` wraps text deltas.
 
@@ -195,6 +221,13 @@ blocking queue:
 (realtime/poll! connection 5000) ; normalized server event, or nil
 (realtime/close! connection)
 ```
+
+Reliability features are opt-in. `:auto-reconnect? true` enables exponential
+backoff retries; configure `:reconnect-max-attempts` or
+`:reconnect-max-duration-ms`, plus the base/max delay and jitter options.
+`:heartbeat-interval-ms` enables OkHttp protocol pings for an owned client, and
+`:idle-timeout-ms` emits `:connection.idle-timeout` when no server messages are
+received in that window. Existing behavior and defaults are unchanged.
 
 The namespace also exposes client-secret creation, legacy session and
 transcription-session creation, translation client secrets and WebSockets, and
@@ -308,6 +341,11 @@ WebSocket, session, client-secret, transcription, translation, and SIP call
 helpers. `openai.content-provenance-checks` contains Content Provenance Checks.
 `openai.graders` maps to the stable grader-model service. The service exposes
 no operations in SDK 4.51.0.
+
+List functions remain eager by default. Additive lazy siblings cover models,
+files, batches, stored Chat Completions, response input items, vector stores and
+their files/batches, and ChatKit threads/items. Their option maps accept
+`:max-items` and `:max-pages` to bound realization.
 
 The library wraps each non-deprecated operation that the Java SDK exposes. This
 includes beta ChatKit and beta Responses. The Assistants API (assistants/threads/runs) is not

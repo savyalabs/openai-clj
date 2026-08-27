@@ -6,10 +6,13 @@
 
  :aliases
  {:test
-  {:extra-paths ["test"]
+  {:extra-paths ["test" "."]
    :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
                 org.slf4j/slf4j-nop {:mvn/version "2.0.18"}}
    :main-opts ["-m" "kaocha.runner"]}
+
+  :bedrock
+  {:extra-deps {com.openai/openai-java-bedrock {:mvn/version "4.52.0"}}}
 
   ;; Clojure version overrides for the CI matrix:
   ;;   clojure -M:1.10:test  /   clojure -M:1.11:test  /   clojure -M:1.12:test

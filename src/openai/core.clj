@@ -7,9 +7,12 @@
   (:import (com.openai.client OpenAIClient)
            (com.openai.client.okhttp OpenAIOkHttpClient
                                       OpenAIOkHttpClient$Builder)
-           (com.openai.core JsonValue MultipartField)
+           (com.openai.core JsonValue MultipartField LogLevel)
            (com.openai.core.http StreamResponse)
+           (com.openai.auth WorkloadIdentity)
+           (java.net InetSocketAddress Proxy Proxy$Type)
            (java.time Duration)
+           (java.util.concurrent Executor ExecutorService)
            (com.openai.models ComparisonFilter
                               ComparisonFilter$Builder
                               ComparisonFilter$Type
@@ -299,23 +302,86 @@
 
 (set! *warn-on-reflection* true)
 
+(defn- invalid-client-option! [option message]
+  (throw (ex-info (str option " " message)
+                  {:openai/error :invalid-client-option
+                   :option option})))
+
+(defn- ->headers [headers]
+  (when-not (map? headers)
+    (invalid-client-option! :headers "must be a map"))
+  (into {}
+        (map (fn [[k value]]
+               (let [values (if (string? value) [value] value)]
+                 (when-not (and (sequential? values) (every? string? values))
+                   (invalid-client-option! :headers
+                                           "values must be strings or sequences of strings"))
+                 [(str k) (vec values)])))
+        headers))
+
+(defn- ->proxy [proxy]
+  (cond
+    (instance? Proxy proxy) proxy
+    (map? proxy)
+    (let [{:keys [host port type]} proxy
+          proxy-type (or type :http)]
+      (when-not (string? host)
+        (invalid-client-option! :proxy "host must be a string"))
+      (when-not (and (integer? port) (<= 1 port 65535))
+        (invalid-client-option! :proxy "port must be an integer from 1 to 65535"))
+      (when-not (#{:http :socks} proxy-type)
+        (invalid-client-option! :proxy "type must be :http or :socks"))
+      (Proxy. (if (= :socks proxy-type) Proxy$Type/SOCKS Proxy$Type/HTTP)
+               (InetSocketAddress/createUnresolved host (int port))))
+    :else (invalid-client-option! :proxy "must be a java.net.Proxy or host/port map")))
+
+(defn- ->log-level [level]
+  (when-not (keyword? level)
+    (invalid-client-option! :log-level "must be a keyword"))
+  (try
+    (LogLevel/valueOf (.toUpperCase ^String (name level)))
+    (catch IllegalArgumentException _
+      (invalid-client-option! :log-level "must be one of :off, :info, :error, or :debug"))))
+
 (defn client
   "An OpenAI client. With no args, it reads credentials from the environment
   (`OPENAI_API_KEY`). Use explicit config keys to set client options:
   `:api-key`, `:organization`, `:project`, `:base-url`, `:timeout-ms`,
-  `:max-retries`, and `:azure-service-version` (an Azure OpenAI api-version
-  string, used together with an Azure `:base-url`)."
+  `:max-retries`, `:admin-api-key`, `:headers`, `:proxy`, `:executor`,
+  `:stream-handler-executor`, `:log-level`, `:workload-identity`, and
+  `:azure-service-version` (an Azure OpenAI api-version string, used together
+  with an Azure `:base-url`)."
   (^OpenAIClient [] (OpenAIOkHttpClient/fromEnv))
   (^OpenAIClient [{:keys [api-key organization project base-url timeout-ms max-retries webhook-secret
-                          azure-service-version]}]
+                          azure-service-version admin-api-key headers proxy executor
+                          stream-handler-executor log-level workload-identity]}]
    (let [^OpenAIOkHttpClient$Builder b (OpenAIOkHttpClient/builder)]
      (when api-key (.apiKey b ^String api-key))
+     (when admin-api-key
+       (when-not (string? admin-api-key)
+         (invalid-client-option! :admin-api-key "must be a string"))
+       (.adminApiKey b ^String admin-api-key))
      (when organization (.organization b ^String organization))
      (when project (.project b ^String project))
      (when base-url (.baseUrl b ^String base-url))
      (when timeout-ms (.timeout b (Duration/ofMillis (long timeout-ms))))
      (when max-retries (.maxRetries b (int max-retries)))
      (when webhook-secret (.webhookSecret b ^String webhook-secret))
+     (when headers (.headers b ^java.util.Map (->headers headers)))
+     (when proxy (.proxy b ^Proxy (->proxy proxy)))
+     (when executor
+       (when-not (instance? ExecutorService executor)
+         (invalid-client-option! :executor "must be an ExecutorService"))
+       (.dispatcherExecutorService b ^ExecutorService executor))
+     (when stream-handler-executor
+       (when-not (instance? Executor stream-handler-executor)
+         (invalid-client-option! :stream-handler-executor "must be an Executor"))
+       (.streamHandlerExecutor b ^Executor stream-handler-executor))
+     (when log-level (.logLevel b (->log-level log-level)))
+     (when workload-identity
+       (when-not (instance? WorkloadIdentity workload-identity)
+         (invalid-client-option! :workload-identity "must be a WorkloadIdentity"))
+       (.workloadIdentity b ^WorkloadIdentity workload-identity))
      (when azure-service-version
        (.azureServiceVersion b (AzureOpenAIServiceVersion/fromString ^String azure-service-version)))
      (.build b))))
@@ -1078,9 +1144,12 @@
   (cond-> {}
     (.isPresent (.reason d)) (assoc :reason (impl/->keyword (.asString ^com.openai.models.responses.Response$IncompleteDetails$Reason (.get (.reason d)))))))
 
-(defn- response->map [^Response r]
-  (let [items (mapv output-item->map (.output r))]
-    (cond-> {:id (.id r)
+(defn- response->map
+  ([^Response r] (response->map r {}))
+  ([^Response r opts]
+   (let [items (mapv output-item->map (.output r))]
+    (impl/preserve-raw
+     (cond-> {:id (.id r)
              :model (.asString ^ResponsesModel (.model r))
              :output items
              :text (impl/output-text items)
@@ -1094,7 +1163,8 @@
       (.isPresent (.promptCacheRetention r))
       (assoc :prompt-cache-retention
              (.asString ^com.openai.models.responses.Response$PromptCacheRetention
-                        (.get (.promptCacheRetention r)))))))
+                        (.get (.promptCacheRetention r)))))
+     r opts))))
 
 (defn- schema-value [schema key]
   (if (contains? schema key)
@@ -1165,6 +1235,9 @@
   Structured outputs: `:json-schema {:name \"...\" :schema {...} :strict true
   :description \"...\"}`.
 
+  Set `:lossless? true` to add the complete parsed SDK response under
+  `:openai/raw` while retaining the curated top-level map.
+
   Tools: `{:type :function :name \"...\" :description \"...\" :strict true
   :parameters {...}}`, `{:type :web-search}`, `{:type :file-search
   :vector-store-ids [...]}`, or `{:type :code-interpreter :container \"...\"}`.
@@ -1179,7 +1252,7 @@
   `:unknown`."
   [^OpenAIClient client req]
   (impl/with-api-errors
-    (response->map (.create (.responses client) (->params req)))))
+    (response->map (.create (.responses client) (->params req)) req)))
 
 (defn count-input-tokens
   "Count input tokens for a Responses request shape. It accepts the same request
@@ -1247,6 +1320,15 @@
   (impl/with-api-errors
     (let [^ModelService svc (.models client)]
       (model->map (.retrieve svc model-id)))))
+
+(defn list-models-lazy
+  "Lazy sibling of `list-models`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-models-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^ModelService svc (.models client)
+           ^ModelListPage p (.list svc)]
+       (map model->map (impl/lazy-pages p opts))))))
 
 (defn- ->model-delete-params ^ModelDeleteParams [^String model-id]
   (-> (ModelDeleteParams/builder)
@@ -1782,6 +1864,16 @@
           ^ChatCompletionService svc (.completions chat)]
       (deleted-chat-completion->map (.delete svc completion-id)))))
 
+(defn list-chat-completions-lazy
+  "Lazy sibling of `list-chat-completions`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-chat-completions-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^ChatService chat (.chat client)
+           ^ChatCompletionService svc (.completions chat)
+           ^ChatCompletionListPage p (.list svc (->chat-completion-list-params opts))]
+       (map chat-completion->map (impl/lazy-pages p opts))))))
+
 (defn list-chat-completion-messages
   "List messages from a stored chat completion. It follows each page automatically."
   ([^OpenAIClient client ^String completion-id]
@@ -1817,11 +1909,14 @@
          (when on-text (on-text content)))))))
 
 (defn get-response
-  "Retrieve one stored response by id as a response map."
-  [^OpenAIClient client ^String response-id]
-  (impl/with-api-errors
-    (let [^ResponseService svc (.responses client)]
-      (response->map (.retrieve svc response-id)))))
+  "Retrieve one stored response by id as a response map. Pass `{:lossless? true}`
+  as the optional third argument to include `:openai/raw`."
+  ([^OpenAIClient client ^String response-id]
+   (get-response client response-id {}))
+  ([^OpenAIClient client ^String response-id opts]
+   (impl/with-api-errors
+     (let [^ResponseService svc (.responses client)]
+       (response->map (.retrieve svc response-id) opts)))))
 
 (defn- ->input-item-list-params ^InputItemListParams
   [^String response-id {:keys [after include limit order]}]
@@ -1855,12 +1950,26 @@
       (.delete svc response-id))
     nil))
 
+(defn list-input-items-lazy
+  "Lazy sibling of `list-input-items`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client ^String response-id]
+   (list-input-items-lazy client response-id {}))
+  ([^OpenAIClient client ^String response-id opts]
+   (impl/with-api-errors
+     (let [^ResponseService svc (.responses client)
+           ^InputItemService items (.inputItems svc)
+           ^InputItemListPage p (.list items (->input-item-list-params response-id opts))]
+       (map response-item->map (impl/lazy-pages p opts))))))
+
 (defn cancel-response
-  "Cancel an in-progress response by id and return the response map."
-  [^OpenAIClient client ^String response-id]
-  (impl/with-api-errors
-    (let [^ResponseService svc (.responses client)]
-      (response->map (.cancel svc response-id)))))
+  "Cancel an in-progress response by id and return the response map. Pass
+  `{:lossless? true}` as the optional third argument to include `:openai/raw`."
+  ([^OpenAIClient client ^String response-id]
+   (cancel-response client response-id {}))
+  ([^OpenAIClient client ^String response-id opts]
+   (impl/with-api-errors
+     (let [^ResponseService svc (.responses client)]
+       (response->map (.cancel svc response-id) opts)))))
 
 (defn- compacted-response->map [^com.openai.models.responses.CompactedResponse r]
   (let [items (mapv output-item->map (.output r))]
@@ -1871,14 +1980,18 @@
      :created-at (.createdAt r)}))
 
 (defn compact
-  "Compact a previous response by id and return the compacted response map."
-  [^OpenAIClient client ^String response-id]
-  (impl/with-api-errors
-    (let [^ResponseService svc (.responses client)]
-      (compacted-response->map
-       (.compact svc (-> (com.openai.models.responses.ResponseCompactParams/builder)
-                         (.previousResponseId response-id)
-                         (.build)))))))
+  "Compact a previous response by id and return the compacted response map.
+  Pass `{:lossless? true}` as the optional third argument to include
+  `:openai/raw`."
+  ([^OpenAIClient client ^String response-id]
+   (compact client response-id {}))
+  ([^OpenAIClient client ^String response-id opts]
+   (impl/with-api-errors
+     (let [^ResponseService svc (.responses client)
+           r (.compact svc (-> (com.openai.models.responses.ResponseCompactParams/builder)
+                               (.previousResponseId response-id)
+                               (.build)))]
+       (impl/preserve-raw (compacted-response->map r) r opts)))))
 
 ;; Files
 
@@ -1981,6 +2094,15 @@
           ^FileDeleted d (.delete svc file-id)]
       {:id (.id d) :deleted (.deleted d)})))
 
+(defn list-files-lazy
+  "Lazy sibling of `list-files`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-files-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^FileService svc (.files client)
+           ^FileListPage p (.list svc (->file-list-params opts))]
+       (map file->map (impl/lazy-pages p opts))))))
+
 ;; Batches
 
 (defn- ->batch-metadata ^BatchCreateParams$Metadata [m]
@@ -2073,3 +2195,12 @@
      (let [^BatchService svc (.batches client)
            ^BatchListPage p (.list svc (->batch-list-params opts))]
        (mapv batch->map (impl/all-pages p))))))
+
+(defn list-batches-lazy
+  "Lazy sibling of `list-batches`; accepts optional `:max-items` and `:max-pages`."
+  ([^OpenAIClient client] (list-batches-lazy client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^BatchService svc (.batches client)
+           ^BatchListPage p (.list svc (->batch-list-params opts))]
+       (map batch->map (impl/lazy-pages p opts))))))
