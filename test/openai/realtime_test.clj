@@ -19,6 +19,184 @@
 (defn- json-map [s]
   (json/read-value s mapper))
 
+(defn- fake-websocket [sent closed]
+  (proxy [okhttp3.WebSocket] []
+    (request [] nil)
+    (queueSize [] 0)
+    (send [value]
+      (if (string? value)
+        (swap! sent conj value)
+        value)
+      true)
+    (close [code reason] (swap! closed conj [code reason]) true)
+    (cancel [] (swap! closed conj :cancel) nil)))
+
+(defn- scheduler-fixture []
+  (let [tasks (atom [])]
+    {:tasks tasks
+     :schedule (fn [delay-ms task]
+                 (let [entry (atom {:delay-ms delay-ms :task task :cancelled? false})]
+                   (swap! tasks conj entry)
+                   #(swap! entry assoc :cancelled? true)))}))
+
+(defn- run-task! [entry]
+  (when-not (:cancelled? @entry)
+    ((:task @entry))))
+
+(deftest reconnects-a-dropped-connection-with-preserved-callbacks
+  (let [s (scheduler-fixture)
+        listeners (atom [])
+        sockets (atom [])
+        opens (atom [])
+        sent (atom [])
+        closed (atom [])
+        connection (realtime/connect
+                    {:api-key "test"
+                     :okhttp-client (okhttp3.OkHttpClient.)
+                     :websocket-factory (fn [_ listener]
+                                          (swap! listeners conj listener)
+                                          (let [ws (fake-websocket sent closed)]
+                                            (swap! sockets conj ws)
+                                            ws))
+                     :schedule-fn (:schedule s)
+                     :auto-reconnect? true
+                     :reconnect-base-delay-ms 10
+                     :reconnect-jitter 0
+                     :on-open (fn [ws response] (swap! opens conj [ws response]))})]
+    (is (= 1 (count @listeners)))
+    (when-let [listener (last @listeners)]
+      (.onFailure listener (first @sockets) (RuntimeException. "drop") nil))
+    (is (= 1 (count @listeners)))
+    (is (= 10 (:delay-ms @(first @(:tasks s)))))
+    (when-let [task (first @(:tasks s))]
+      (run-task! task))
+    (is (= 2 (count @listeners)))
+    (.onOpen (last @listeners) (second @sockets) nil)
+    (is (= 1 (count @opens)))
+    (realtime/close! connection)))
+
+(deftest reconnect-backoff-is-deterministic-and-bounded
+  (let [s (scheduler-fixture)
+        listeners (atom [])
+        sockets (atom [])
+        connection (realtime/connect
+                    {:api-key "test"
+                     :okhttp-client (okhttp3.OkHttpClient.)
+                     :websocket-factory (fn [_ listener]
+                                          (swap! listeners conj listener)
+                                          (let [ws (fake-websocket (atom []) (atom []))]
+                                            (swap! sockets conj ws)
+                                            ws))
+                     :schedule-fn (:schedule s)
+                     :auto-reconnect? true
+                     :reconnect-base-delay-ms 10
+                     :reconnect-max-delay-ms 25
+                     :reconnect-jitter 0
+                     :reconnect-max-attempts 2})]
+    (is (= 1 (count @listeners)))
+    (when-let [listener (first @listeners)]
+      (.onFailure listener (first @sockets) (RuntimeException. "drop") nil))
+    (when-let [task (first @(:tasks s))]
+      (run-task! task))
+    (when-let [listener (second @listeners)]
+      (.onFailure listener (second @sockets) (RuntimeException. "drop") nil))
+    (when-let [task (second @(:tasks s))]
+      (run-task! task))
+    (when-let [listener (nth @listeners 2 nil)]
+      (.onFailure listener (nth @sockets 2) (RuntimeException. "drop") nil))
+    (is (= [10 20] (mapv #(-> % deref :delay-ms) @(:tasks s))))
+    (realtime/close! connection)))
+
+(deftest reconnects-an-unexpected-remote-close
+  (let [s (scheduler-fixture)
+        listeners (atom [])
+        sockets (atom [])
+        connection (realtime/connect
+                    {:api-key "test"
+                     :okhttp-client (okhttp3.OkHttpClient.)
+                     :websocket-factory (fn [_ listener]
+                                          (swap! listeners conj listener)
+                                          (let [ws (fake-websocket (atom []) (atom []))]
+                                            (swap! sockets conj ws)
+                                            ws))
+                     :schedule-fn (:schedule s)
+                     :auto-reconnect? true
+                     :reconnect-base-delay-ms 10
+                     :reconnect-jitter 0})]
+    (.onClosed (first @listeners) (first @sockets) 1006 "remote drop")
+    (is (= [10] (mapv #(-> % deref :delay-ms) @(:tasks s))))
+    (when-let [task (first @(:tasks s))]
+      (run-task! task))
+    (is (= 2 (count @listeners)))
+    (realtime/close! connection)))
+
+(deftest explicit-close-never-reconnects-after-remote-close-callback
+  (let [s (scheduler-fixture)
+        listeners (atom [])
+        sockets (atom [])
+        connection (realtime/connect
+                    {:api-key "test"
+                     :okhttp-client (okhttp3.OkHttpClient.)
+                     :websocket-factory (fn [_ listener]
+                                          (swap! listeners conj listener)
+                                          (let [ws (fake-websocket (atom []) (atom []))]
+                                            (swap! sockets conj ws)
+                                            ws))
+                     :schedule-fn (:schedule s)
+                     :auto-reconnect? true})]
+    (realtime/close! connection)
+    (.onClosed (first @listeners) (first @sockets) 1000 "client closing")
+    (is (empty? @(:tasks s)))))
+
+(deftest idle-timeout-is-an-explicit-event
+  (let [s (scheduler-fixture)
+        listeners (atom [])
+        sockets (atom [])
+        events (atom [])
+        clock (atom 0)
+        connection (realtime/connect
+                    {:api-key "test"
+                     :okhttp-client (okhttp3.OkHttpClient.)
+                     :websocket-factory (fn [_ listener]
+                                          (swap! listeners conj listener)
+                                          (let [ws (fake-websocket (atom []) (atom []))]
+                                            (swap! sockets conj ws)
+                                            ws))
+                     :schedule-fn (:schedule s)
+                     :heartbeat-interval-ms 10
+                     :idle-timeout-ms 20
+                     :now-fn #(long @clock)
+                     :on-event #(swap! events conj %)})]
+    (when-let [listener (first @listeners)]
+      (.onOpen listener nil nil))
+    (reset! clock 10)
+    (.onMessage (first @listeners) (first @sockets)
+                "{\"type\":\"response.done\",\"response\":{}}")
+    (run-task! (first @(:tasks s)))
+    (is (not-any? #(= :connection.idle-timeout (:type %)) @events))
+    (reset! clock 31)
+    (doseq [entry (rest @(:tasks s))] (run-task! entry))
+    (is (some #(= :connection.idle-timeout (:type %)) @events))
+    (realtime/close! connection)))
+
+(deftest close-cancels-reliability-work
+  (let [s (scheduler-fixture)
+        listeners (atom [])
+        connection (realtime/connect
+                    {:api-key "test"
+                     :okhttp-client (okhttp3.OkHttpClient.)
+                     :websocket-factory (fn [_ listener]
+                                          (swap! listeners conj listener)
+                                          (fake-websocket (atom []) (atom [])))
+                     :schedule-fn (:schedule s)
+                     :auto-reconnect? true
+                     :heartbeat-interval-ms 10
+                     :idle-timeout-ms 20})]
+    (when-let [listener (first @listeners)]
+      (.onOpen listener nil nil))
+    (realtime/close! connection)
+    (is (every? :cancelled? (map deref @(:tasks s))))))
+
 (deftest dispatch-blocks-until-a-bounded-queue-has-room
   (let [queue (LinkedBlockingQueue. 1)
         first-event {:type :response.audio.delta :delta "first"}
