@@ -218,6 +218,13 @@ blocking queue:
 (realtime/close! connection)
 ```
 
+Reliability features are opt-in. `:auto-reconnect? true` enables exponential
+backoff retries; configure `:reconnect-max-attempts` or
+`:reconnect-max-duration-ms`, plus the base/max delay and jitter options.
+`:heartbeat-interval-ms` enables OkHttp protocol pings for an owned client, and
+`:idle-timeout-ms` emits `:connection.idle-timeout` when no server messages are
+received in that window. Existing behavior and defaults are unchanged.
+
 The namespace also exposes client-secret creation, legacy session and
 transcription-session creation, translation client secrets and WebSockets, and
 SIP `accept-call`, `hangup-call`, `refer-call`, and `reject-call` operations.
