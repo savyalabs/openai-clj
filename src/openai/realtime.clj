@@ -373,7 +373,7 @@
           now (or now-fn #(System/currentTimeMillis))
           random (or random-fn rand)
           scheduler (when (and (nil? schedule-fn)
-                               (or auto-reconnect? heartbeat-interval-ms idle-timeout-ms))
+                               (or auto-reconnect? idle-timeout-ms))
                      (Executors/newSingleThreadScheduledExecutor))
           schedule (or schedule-fn
                        (fn [delay-ms task]
@@ -425,10 +425,8 @@
                                    (>= (- (now) @activity) idle-timeout-ms)
                                    (compare-and-set! idle-reported? false true))
                           (dispatch! queue on-event {:type :connection.idle-timeout}))
-                        (when (and (or heartbeat-interval-ms idle-timeout-ms)
-                                   (not @closed?))
-                          (schedule-once! (long (or heartbeat-interval-ms idle-timeout-ms))
-                                          idle-check!)))
+                        (when (and idle-timeout-ms (not @closed?))
+                          (schedule-once! (long idle-timeout-ms) idle-check!)))
           listener
           (proxy [WebSocketListener] []
             (onOpen [^WebSocket ws ^Response response]

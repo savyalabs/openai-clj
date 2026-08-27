@@ -163,7 +163,7 @@
                                             (swap! sockets conj ws)
                                             ws))
                      :schedule-fn (:schedule s)
-                     :heartbeat-interval-ms 10
+                     :heartbeat-interval-ms 50
                      :idle-timeout-ms 20
                      :now-fn #(long @clock)
                      :on-event #(swap! events conj %)})]
@@ -174,6 +174,7 @@
                 "{\"type\":\"response.done\",\"response\":{}}")
     (run-task! (first @(:tasks s)))
     (is (not-any? #(= :connection.idle-timeout (:type %)) @events))
+    (is (= 20 (:delay-ms @(second @(:tasks s)))))
     (reset! clock 31)
     (doseq [entry (rest @(:tasks s))] (run-task! entry))
     (is (some #(= :connection.idle-timeout (:type %)) @events))
