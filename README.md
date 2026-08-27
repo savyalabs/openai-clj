@@ -93,6 +93,11 @@ provider-specific extensions outside the OpenAI protocol.
                   :timeout-ms 60000
                   :max-retries 2}))
 
+The constructor also accepts `:admin-api-key`, `:headers`, `:proxy` (a
+`java.net.Proxy` or `{:host "..." :port 8080}`), `:executor`,
+`:stream-handler-executor`, `:log-level` (`:off`, `:info`, `:error`, or
+`:debug`), and a typed SDK `:workload-identity`.
+
 (openai/create-response
  client
  {:model "gpt-5.2"
