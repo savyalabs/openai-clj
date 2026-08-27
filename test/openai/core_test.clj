@@ -3,6 +3,10 @@
             [openai.core :as openai]
             [openai.impl :as impl])
   (:import (com.openai.client OpenAIClient)
+           (com.openai.auth SubjectTokenProvider
+                            SubjectTokenType
+                            WorkloadIdentity)
+           (com.openai.core LogLevel)
            (com.openai.models ResponseFormatJsonSchema
                               ResponseFormatJsonSchema$JsonSchema
                               ResponseFormatJsonSchema$JsonSchema$Schema)
@@ -96,7 +100,9 @@
                                         ResponseUsage$OutputTokensDetails
                                         ToolChoiceOptions)
            (com.openai.models.responses.inputitems InputItemListParams
-                                                   InputItemListParams$Order)))
+                                                   InputItemListParams$Order)
+           (java.net InetSocketAddress Proxy Proxy$Type)
+           (java.util.concurrent ExecutorService Executors)))
 
 (defn- params ^ResponseCreateParams [m]
   (#'openai/->params m))
@@ -206,6 +212,86 @@
                           :base-url "https://example.test/v1"
                           :timeout-ms 1000
                           :max-retries 1})]
+    (is (instance? OpenAIClient c))
+    (.close ^OpenAIClient c)))
+
+(defn- client-options ^com.openai.core.ClientOptions [^OpenAIClient c]
+  (com.openai.client.OpenAIClientImpl/access$getClientOptions$p c))
+
+(defn- private-field [obj field]
+  (let [f (doto (.getDeclaredField (class obj) field)
+            (.setAccessible true))]
+    (.get f obj)))
+
+(defn- subject-token-provider []
+  (reify SubjectTokenProvider
+    (tokenType [_] SubjectTokenType/JWT)
+    (getToken [_ _ _] "token")
+    (getTokenAsync [_ _ _] (java.util.concurrent.CompletableFuture/completedFuture "token"))))
+
+(deftest advanced-client-options-reach-built-client
+  (let [^ExecutorService executor (Executors/newSingleThreadExecutor)
+        stream-executor (Executors/newSingleThreadExecutor)
+        identity (-> (WorkloadIdentity/builder)
+                     (.clientId "client")
+                     (.identityProviderId "provider")
+                     (.serviceAccountId "account")
+                     (.provider (subject-token-provider))
+                     (.build))
+        c (openai/client {:api-key "sk-test"
+                          :admin-api-key "admin-test"
+                          :headers {"X-Test" "one"
+                                    "X-Multi" ["a" "b"]}
+                          :proxy {:host "proxy.example" :port 8080}
+                          :executor executor
+                          :stream-handler-executor stream-executor
+                          :log-level :debug})
+        workload-client (openai/client {:workload-identity identity})]
+    (try
+      (let [options (client-options c)
+            headers (.headers options)
+            retrying-client (private-field options "originalHttpClient")
+            okhttp-client (private-field retrying-client "httpClient")
+            okhttp (.getOkHttpClient$openai_java_client_okhttp okhttp-client)]
+        (is (= "admin-test" (opt (.adminApiKey options))))
+        (is (= ["one"] (.values headers "X-Test")))
+        (is (= ["a" "b"] (.values headers "X-Multi")))
+        (is (= LogLevel/DEBUG (.logLevel options)))
+        (is (instance? com.openai.credential.BearerTokenCredential
+                       (.credential options)))
+        (is (= (Proxy$Type/HTTP) (.type (.proxy okhttp))))
+        (is (= "proxy.example" (.getHostString ^InetSocketAddress (.address (.proxy okhttp)))))
+        (is (= 8080 (.getPort ^InetSocketAddress (.address (.proxy okhttp)))))
+        (is (identical? executor (.executorService (.dispatcher okhttp))))
+        (is (identical? stream-executor
+                       (private-field (.streamHandlerExecutor options)
+                                      "executorService"))))
+      (finally
+        (.close ^OpenAIClient c)
+        (is (instance? com.openai.credential.WorkloadIdentityCredential
+                       (.credential (client-options workload-client))))
+        (.close ^OpenAIClient workload-client)
+        (.shutdownNow executor)
+        (.shutdownNow ^java.util.concurrent.ExecutorService stream-executor)))))
+
+(deftest validates-advanced-client-options
+  (doseq [[opts message]
+          [[{:admin-api-key 1} "admin-api-key"]
+           [{:headers {"X-Test" 1}} "headers"]
+           [{:proxy {:host "proxy.example" :port 0}} "proxy"]
+           [{:log-level :verbose} "log-level"]
+           [{:workload-identity {}} "workload-identity"]
+           [{:executor :not-an-executor} "executor"]
+           [{:stream-handler-executor :not-an-executor} "stream-handler-executor"]]]
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          (re-pattern message)
+                          (openai/client (merge {:api-key "sk-test"} opts)))))
+  (is (thrown? clojure.lang.ExceptionInfo
+               (openai/client {:api-key "sk-test" :proxy {:host "proxy"}}))))
+
+(deftest accepts-java-proxy
+  (let [proxy (Proxy. Proxy$Type/HTTP (InetSocketAddress/createUnresolved "proxy.example" 8080))
+        c (openai/client {:api-key "sk-test" :proxy proxy})]
     (is (instance? OpenAIClient c))
     (.close ^OpenAIClient c)))
 

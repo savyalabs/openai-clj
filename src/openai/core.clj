@@ -7,9 +7,12 @@
   (:import (com.openai.client OpenAIClient)
            (com.openai.client.okhttp OpenAIOkHttpClient
                                       OpenAIOkHttpClient$Builder)
-           (com.openai.core JsonValue MultipartField)
+           (com.openai.core JsonValue MultipartField LogLevel)
            (com.openai.core.http StreamResponse)
+           (com.openai.auth WorkloadIdentity)
+           (java.net InetSocketAddress Proxy Proxy$Type)
            (java.time Duration)
+           (java.util.concurrent Executor ExecutorService)
            (com.openai.models ComparisonFilter
                               ComparisonFilter$Builder
                               ComparisonFilter$Type
@@ -299,23 +302,86 @@
 
 (set! *warn-on-reflection* true)
 
+(defn- invalid-client-option! [option message]
+  (throw (ex-info (str option " " message)
+                  {:openai/error :invalid-client-option
+                   :option option})))
+
+(defn- ->headers [headers]
+  (when-not (map? headers)
+    (invalid-client-option! :headers "must be a map"))
+  (into {}
+        (map (fn [[k value]]
+               (let [values (if (string? value) [value] value)]
+                 (when-not (and (sequential? values) (every? string? values))
+                   (invalid-client-option! :headers
+                                           "values must be strings or sequences of strings"))
+                 [(str k) (vec values)])))
+        headers))
+
+(defn- ->proxy [proxy]
+  (cond
+    (instance? Proxy proxy) proxy
+    (map? proxy)
+    (let [{:keys [host port type]} proxy
+          proxy-type (or type :http)]
+      (when-not (string? host)
+        (invalid-client-option! :proxy "host must be a string"))
+      (when-not (and (integer? port) (<= 1 port 65535))
+        (invalid-client-option! :proxy "port must be an integer from 1 to 65535"))
+      (when-not (#{:http :socks} proxy-type)
+        (invalid-client-option! :proxy "type must be :http or :socks"))
+      (Proxy. (if (= :socks proxy-type) Proxy$Type/SOCKS Proxy$Type/HTTP)
+               (InetSocketAddress/createUnresolved host (int port))))
+    :else (invalid-client-option! :proxy "must be a java.net.Proxy or host/port map")))
+
+(defn- ->log-level [level]
+  (when-not (keyword? level)
+    (invalid-client-option! :log-level "must be a keyword"))
+  (try
+    (LogLevel/valueOf (.toUpperCase ^String (name level)))
+    (catch IllegalArgumentException _
+      (invalid-client-option! :log-level "must be one of :off, :info, :error, or :debug"))))
+
 (defn client
   "An OpenAI client. With no args, it reads credentials from the environment
   (`OPENAI_API_KEY`). Use explicit config keys to set client options:
   `:api-key`, `:organization`, `:project`, `:base-url`, `:timeout-ms`,
-  `:max-retries`, and `:azure-service-version` (an Azure OpenAI api-version
-  string, used together with an Azure `:base-url`)."
+  `:max-retries`, `:admin-api-key`, `:headers`, `:proxy`, `:executor`,
+  `:stream-handler-executor`, `:log-level`, `:workload-identity`, and
+  `:azure-service-version` (an Azure OpenAI api-version string, used together
+  with an Azure `:base-url`)."
   (^OpenAIClient [] (OpenAIOkHttpClient/fromEnv))
   (^OpenAIClient [{:keys [api-key organization project base-url timeout-ms max-retries webhook-secret
-                          azure-service-version]}]
+                          azure-service-version admin-api-key headers proxy executor
+                          stream-handler-executor log-level workload-identity]}]
    (let [^OpenAIOkHttpClient$Builder b (OpenAIOkHttpClient/builder)]
      (when api-key (.apiKey b ^String api-key))
+     (when admin-api-key
+       (when-not (string? admin-api-key)
+         (invalid-client-option! :admin-api-key "must be a string"))
+       (.adminApiKey b ^String admin-api-key))
      (when organization (.organization b ^String organization))
      (when project (.project b ^String project))
      (when base-url (.baseUrl b ^String base-url))
      (when timeout-ms (.timeout b (Duration/ofMillis (long timeout-ms))))
      (when max-retries (.maxRetries b (int max-retries)))
      (when webhook-secret (.webhookSecret b ^String webhook-secret))
+     (when headers (.headers b ^java.util.Map (->headers headers)))
+     (when proxy (.proxy b ^Proxy (->proxy proxy)))
+     (when executor
+       (when-not (instance? ExecutorService executor)
+         (invalid-client-option! :executor "must be an ExecutorService"))
+       (.dispatcherExecutorService b ^ExecutorService executor))
+     (when stream-handler-executor
+       (when-not (instance? Executor stream-handler-executor)
+         (invalid-client-option! :stream-handler-executor "must be an Executor"))
+       (.streamHandlerExecutor b ^Executor stream-handler-executor))
+     (when log-level (.logLevel b (->log-level log-level)))
+     (when workload-identity
+       (when-not (instance? WorkloadIdentity workload-identity)
+         (invalid-client-option! :workload-identity "must be a WorkloadIdentity"))
+       (.workloadIdentity b ^WorkloadIdentity workload-identity))
      (when azure-service-version
        (.azureServiceVersion b (AzureOpenAIServiceVersion/fromString ^String azure-service-version)))
      (.build b))))
