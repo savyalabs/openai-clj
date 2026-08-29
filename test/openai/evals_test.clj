@@ -53,7 +53,7 @@
             :testing-criteria [{:type :string-check :name "exact"
                                 :input "{{sample.output_text}}"
                                 :reference "{{item.answer}}" :operation :eq}]}
-           (#'evals/eval-create-response->map response)))))
+           ((deref (ns-resolve 'openai.evals 'eval-create-response->map)) response)))))
 
 (deftest curates-run-response
   (let [source (-> (CreateEvalJsonlRunDataSource$Source$FileId/builder)
@@ -81,7 +81,7 @@
             :data-source {:type :jsonl :source {:type :file-id :id "file_1"}}
             :per-model-usage [] :per-testing-criteria-results []
             :result-counts {:errored 1 :failed 2 :passed 3 :total 6}}
-           (#'evals/run-create-response->map response)))))
+           ((deref (ns-resolve 'openai.evals 'run-create-response->map)) response)))))
 
 (deftest curates-output-item-response
   (let [item (-> (OutputItemRetrieveResponse$DatasourceItem/builder)
@@ -114,4 +114,4 @@
                      :seed 1 :temperature 0.0 :top-p 1.0
                      :usage {:cached-tokens 0 :completion-tokens 1
                              :prompt-tokens 2 :total-tokens 3}}}
-           (#'evals/output-item-retrieve-response->map response)))))
+           ((deref (ns-resolve 'openai.evals 'output-item-retrieve-response->map)) response)))))

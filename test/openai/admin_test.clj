@@ -10,7 +10,6 @@
            (com.openai.models.admin.organization.invites Invite Invite$Builder Invite$Role Invite$Status)
            (com.openai.models.admin.organization.projects Project ProjectCreateParams)
            (com.openai.models.admin.organization.projects.apikeys ApiKeyListParams ApiKeyListParams$OwnerProjectAccess ProjectApiKey ProjectApiKey$Owner ProjectApiKey$OwnerProjectAccess)
-           (com.openai.models.admin.organization.projects.groups ProjectGroup)
            (com.openai.models.admin.organization.projects.ratelimits ProjectRateLimit RateLimitUpdateRateLimitParams)
            (com.openai.models.admin.organization.projects.serviceaccounts ProjectServiceAccount ServiceAccountCreateParams)
            (com.openai.models.admin.organization.projects.serviceaccounts.apikeys ApiKeyCreateResponse)

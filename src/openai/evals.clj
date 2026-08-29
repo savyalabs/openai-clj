@@ -144,6 +144,9 @@
                   (let [~metadata (impl/opt-get (.metadata ~r))]
                     (properties->map (._additionalProperties ~metadata)))))))))
 
+(declare eval-create-response->map eval-retrieve-response->map eval-update-response->map
+         eval-list-response->map)
+
 (def-eval-response-converter eval-create-response->map EvalCreateResponse
   EvalCreateResponse$DataSourceConfig EvalCreateResponse$TestingCriterion EvalCreateResponse$Metadata)
 (def-eval-response-converter eval-retrieve-response->map EvalRetrieveResponse
@@ -218,6 +221,9 @@
            (assoc :metadata (let [~md (impl/opt-get (.metadata ~r))]
                               (properties->map (._additionalProperties ~md)))))))))
 
+(declare run-create-response->map run-retrieve-response->map run-list-response->map
+         run-cancel-response->map)
+
 (def-run-response-converter run-create-response->map RunCreateResponse
   RunCreateResponse$DataSource RunCreateResponse$Metadata RunCreateResponse$PerModelUsage
   RunCreateResponse$PerTestingCriteriaResult RunCreateResponse$ResultCounts)
@@ -277,7 +283,9 @@
                    :usage {:cached-tokens (.cachedTokens ~usage)
                            :completion-tokens (.completionTokens ~usage)
                            :prompt-tokens (.promptTokens ~usage)
-                           :total-tokens (.totalTokens ~usage)}}}))))
+                   :total-tokens (.totalTokens ~usage)}}}))))
+
+(declare output-item-list-response->map output-item-retrieve-response->map)
 
 (def-output-item-converter output-item-list-response->map OutputItemListResponse
   OutputItemListResponse$DatasourceItem OutputItemListResponse$Result
@@ -364,7 +372,7 @@
     (let [^EvalService svc (.evals client) ^EvalDeleteResponse d (.delete svc eval-id)]
       (eval-delete-response->map d))))
 
-(defn- ->run-data-source [{:keys [type source model] :as ds}]
+(defn- ->run-data-source [{:keys [type source model]}]
   (case (keyword type)
     :jsonl (let [b (CreateEvalJsonlRunDataSource/builder)]
              (.fileIdSource b ^String (:file-id source)) (.build b))

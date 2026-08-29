@@ -7,7 +7,7 @@
            (com.openai.models.videos Video VideoCreateCharacterResponse VideoCreateError
                                       VideoCreateParams VideoDeleteResponse
                                       VideoDownloadContentParams$Variant VideoListPage
-                                      VideoListParams VideoListParams$Order VideoModel
+                                      VideoListParams VideoListParams$Order
                                       VideoSeconds VideoSize)
            (com.openai.services.blocking VideoService)))
 (set! *warn-on-reflection* true)

@@ -31,7 +31,6 @@
                                                     StringCheckGrader$Operation
                                                     TextSimilarityGrader
                                                     TextSimilarityGrader$EvaluationMetric)
-           (com.openai.services.blocking FineTuningService)
            (com.openai.services.blocking.finetuning JobService)
            (com.openai.services.blocking.finetuning.jobs CheckpointService)
            (com.openai.services.blocking.finetuning.checkpoints PermissionService)))

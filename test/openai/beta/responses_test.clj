@@ -1,5 +1,5 @@
 (ns openai.beta.responses-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is]]
             [openai.impl :as impl]
             [openai.beta.responses :as responses])
   (:import (com.openai.core JsonValue)
@@ -19,7 +19,6 @@
                                              BetaToolChoiceOptions
                                              ResponseCreateParams
                                              ResponseCreateParams$Beta)
-           (com.openai.models.beta.responses.inputitems InputItemListParams)
            (com.openai.models.beta.responses.inputtokens InputTokenCountResponse)))
 
 (defn- empty-usage []

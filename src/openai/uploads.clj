@@ -8,7 +8,7 @@
            (com.openai.models.uploads.parts PartCreateParams UploadPart)
            (com.openai.services.blocking UploadService)
            (com.openai.services.blocking.uploads PartService)
-           (java.io ByteArrayInputStream File InputStream)
+           (java.io File InputStream)
            (java.nio.file Path)))
 
 (set! *warn-on-reflection* true)

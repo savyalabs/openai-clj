@@ -7,9 +7,6 @@
                             WorkloadIdentity)
            (com.openai.client OpenAIClient)
            (com.openai.core JsonValue LogLevel)
-           (com.openai.models ResponseFormatJsonSchema
-                              ResponseFormatJsonSchema$JsonSchema
-                              ResponseFormatJsonSchema$JsonSchema$Schema)
            (com.openai.models.chat.completions ChatCompletion
                                                ChatCompletion$Choice
                                                ChatCompletion$Choice$FinishReason
@@ -24,7 +21,6 @@
                                                ChatCompletionChunk$Choice$FinishReason
                                                ChatCompletionContentPart
                                                ChatCompletionCreateParams
-                                               ChatCompletionCreateParams$ServiceTier
                                                ChatCompletionMessage
                                                ChatCompletionMessageFunctionToolCall
                                                ChatCompletionMessageFunctionToolCall$Function
@@ -64,7 +60,6 @@
                                         ResponseOutputItem$McpCall$Status
                                         ResponseOutputItem$McpListTools
                                         ResponseOutputItem$McpListTools$Tool
-                                        ResponseOutputItem$McpApprovalRequest
                                         ResponseOutputItem$ImageGenerationCall
                                         ResponseOutputItem$ImageGenerationCall$Status
                                         ResponseOutputItem$LocalShellCall
@@ -1663,7 +1658,7 @@
                                      (.annotationIndex 0) (.contentIndex 0) (.itemId "msg_1")
                                      (.outputIndex 0) (.sequenceNumber 55) (.build))))))))))
 
-(def throw-normalized! #'openai/throw-normalized!)
+(def throw-normalized! (deref (ns-resolve 'openai.core 'throw-normalized!)))
 
 (defn- rate-limit-ex []
   (let [ctor (first (.getConstructors com.openai.errors.RateLimitException))

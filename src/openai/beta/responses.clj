@@ -34,7 +34,6 @@
                                              ResponseCreateParams$Reasoning
                                              ResponseCreateParams$Reasoning$Builder
                                              ResponseCreateParams$Reasoning$Effort
-                                             ResponseCreateParams$Reasoning$Mode
                                              ResponseCreateParams$StreamOptions
                                              ResponseCreateParams$StreamOptions$Builder
                                              ResponseCreateParams$ToolChoice
@@ -57,7 +56,6 @@
                                                          InputItemListParams$Order)
            (com.openai.models.beta.responses.inputtokens InputTokenCountParams
                                                          InputTokenCountParams$Builder
-                                                         InputTokenCountParams$Beta
                                                          InputTokenCountParams$Truncation
                                                          InputTokenCountResponse)
            (com.openai.services.blocking.beta ResponseService)
@@ -168,18 +166,6 @@
       (.status b (com.openai.models.beta.responses.BetaResponseInputItem$ShellCallOutput$Status/of
                   (impl/enum-name status))))
     (BetaResponseInputItem/ofShellCallOutput (.build b))))
-
-(defn- ->apply-patch-call-output ^BetaResponseInputItem
-  [{:keys [call-id status output id]}]
-  (when-not call-id (impl/missing-key! :call-id))
-  (when-not status (impl/missing-key! :status))
-  (let [b (com.openai.models.beta.responses.BetaResponseInputItem$ApplyPatchCallOutput/builder)]
-    (.callId b ^String call-id)
-    (.status b (com.openai.models.beta.responses.BetaResponseInputItem$ApplyPatchCallOutput$Status/of
-                (impl/enum-name status)))
-    (when id (.id b ^String id))
-    (when (some? output) (.output b ^String (impl/encode-output output)))
-    (BetaResponseInputItem/ofApplyPatchCallOutput (.build b))))
 
 (defn- ->custom-tool-call-output ^BetaResponseInputItem
   [{:keys [call-id output id]}]
@@ -342,11 +328,6 @@
     nil (->message-input-item item)
     (throw (ex-info (str "Unknown beta input type " type)
                     {:openai/error :unknown-input-type :type type}))))
-
-(defn- ->input [input]
-  (if (string? input)
-    input
-    (mapv ->input-item input)))
 
 (defn- ->prompt ^com.openai.models.beta.responses.BetaResponsePrompt
   [{:keys [id version variables]}]

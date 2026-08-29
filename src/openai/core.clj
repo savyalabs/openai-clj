@@ -77,7 +77,6 @@
                                                ChatCompletionFunctionTool
                                                ChatCompletionFunctionTool$Builder
                                                ChatCompletionMessage
-                                               ChatCompletionMessage$Builder
                                                ChatCompletionMessageFunctionToolCall
                                                ChatCompletionMessageFunctionToolCall$Builder
                                                ChatCompletionMessageFunctionToolCall$Function
@@ -116,8 +115,6 @@
                                                         MessageListParams$Order)
            (com.openai.models.completions CompletionUsage)
            (com.openai.models.batches Batch
-                                      Batch$Status
-                                      BatchCancelParams
                                       BatchCreateParams
                                       BatchCreateParams$Builder
                                       BatchCreateParams$CompletionWindow
@@ -167,7 +164,6 @@
                                          FunctionTool$Parameters$Builder
                                          Response
                                          Response$IncompleteDetails
-                                         Response$IncompleteDetails$Reason
                                          ResponseCreateParams
                                          ResponseCreateParams$Builder
                                          ResponseCreateParams$Input
@@ -207,7 +203,6 @@
                                          ResponseInputImage$Builder
                                          ResponseInputImage$Detail
                                          ResponseInputMessageItem
-                                         ResponseInputMessageItem$Status
                                          ResponseInputItem
                                          ResponseInputItem$FunctionCallOutput
                                          ResponseInputItem$FunctionCallOutput$Builder
@@ -221,7 +216,6 @@
                                          ResponseOutputItem$LocalShellCall
                                          ResponseOutputItem$McpApprovalRequest
                                          ResponseOutputItem$McpCall
-                                         ResponseOutputItem$McpCall$Status
                                          ResponseOutputItem$McpListTools
                                          ResponseOutputMessage
                                          ResponseOutputMessage$Content
@@ -386,6 +380,7 @@
        (.azureServiceVersion b (AzureOpenAIServiceVersion/fromString ^String azure-service-version)))
      (.build b))))
 
+#_:clj-kondo/ignore
 (defn- throw-normalized! [^Throwable e]
   (impl/throw-normalized! e))
 
@@ -465,17 +460,6 @@
       (.status b (com.openai.models.responses.ResponseInputItem$ShellCallOutput$Status/of
                   (impl/enum-name status))))
     (ResponseInputItem/ofShellCallOutput (.build b))))
-
-(defn- ->apply-patch-call-output ^ResponseInputItem [{:keys [call-id status output id]}]
-  (when-not call-id (impl/missing-key! :call-id))
-  (when-not status (impl/missing-key! :status))
-  (let [b (com.openai.models.responses.ResponseInputItem$ApplyPatchCallOutput/builder)]
-    (.callId b ^String call-id)
-    (.status b (com.openai.models.responses.ResponseInputItem$ApplyPatchCallOutput$Status/of
-                (impl/enum-name status)))
-    (when id (.id b ^String id))
-    (when (some? output) (.output b ^String (impl/encode-output output)))
-    (ResponseInputItem/ofApplyPatchCallOutput (.build b))))
 
 (defn- ->custom-tool-call-output ^ResponseInputItem [{:keys [call-id output id]}]
   (when-not call-id (impl/missing-key! :call-id))

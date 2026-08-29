@@ -1,5 +1,6 @@
 (ns openai.chatkit-test
   (:require [clojure.test :refer [deftest is testing]]
+            [openai.impl]
             [openai.chatkit :as chatkit])
   (:import (com.openai.core JsonValue)
            (com.openai.models.beta.chatkit ChatKitWorkflow ChatKitWorkflow$StateVariables
@@ -12,7 +13,6 @@
                                                    ChatSessionChatKitConfiguration ChatSessionFileUpload
                                                    ChatSessionHistory
                                                    ChatSessionRateLimits ChatSessionStatus
-                                                   ChatSessionWorkflowParam
                                                    ThreadDeleteResponse)))
 
 (set! *warn-on-reflection* true)
