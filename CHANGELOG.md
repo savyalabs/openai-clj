@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1] - 2026-08-30
+
+### Fixed
+
+- Correct the README's tracked SDK version, which said openai-java 4.51.0 while
+  the library depends on 4.52.0, and point the release link at the matching tag.
+
 ## [0.19.0] - 2026-08-26
 
 ### Added
