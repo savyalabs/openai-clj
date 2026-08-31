@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `com.openai/openai-java` and the optional Bedrock transport to 4.55.0.
+- Expose the new `:compute-units` key in Responses and Completions usage maps.
+
 ## [0.21.0] - 2026-08-31
 
 ### Changed

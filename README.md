@@ -28,7 +28,7 @@ Leiningen:
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.54.0](https://github.com/openai/openai-java/releases/tag/v4.54.0).
+Tracks [`com.openai/openai-java` 4.55.0](https://github.com/openai/openai-java/releases/tag/v4.55.0).
 
 ## Providers
 
@@ -340,7 +340,7 @@ batches, models, and stored Chat Completions. `openai.realtime` contains
 WebSocket, session, client-secret, transcription, translation, and SIP call
 helpers. `openai.content-provenance-checks` contains Content Provenance Checks.
 `openai.graders` maps to the stable grader-model service. The service exposes
-no operations in SDK 4.54.0.
+no operations in SDK 4.55.0.
 
 List functions remain eager by default. Additive lazy siblings cover models,
 files, batches, stored Chat Completions, response input items, vector stores and
