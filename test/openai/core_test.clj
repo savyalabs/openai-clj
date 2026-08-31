@@ -431,6 +431,13 @@
     (is (= "gpt-5.2" (.asString (opt (.model p)))))
     (is (= "hi" (.asText (opt (.input p)))))))
 
+(deftest rejects-explicitly-empty-web-search-domain-allow-list
+  (is (= {:openai/error :empty-allow-list :option :allowed-domains}
+         (ex-data-for #(params {:model "gpt-5.2"
+                                :input "hi"
+                                :tools [{:type :web-search
+                                         :allowed-domains []}]})))))
+
 (deftest translates-tools
   (testing "function tool"
     (let [p (params {:model "gpt-5.2"

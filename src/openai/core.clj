@@ -678,8 +678,10 @@
 
 (defn- ->web-search-filters ^WebSearchTool$Filters [{:keys [allowed-domains]}]
   (let [^WebSearchTool$Filters$Builder b (WebSearchTool$Filters/builder)]
-    (when (seq allowed-domains)
-      (.allowedDomains b ^java.util.List (vec allowed-domains)))
+    (if (seq allowed-domains)
+      (.allowedDomains b ^java.util.List (vec allowed-domains))
+      (throw (ex-info "Explicitly empty :allowed-domains is not supported; omit the key to allow all domains."
+                      {:openai/error :empty-allow-list :option :allowed-domains})))
     (.build b)))
 
 (defn- ->web-search-user-location ^WebSearchTool$UserLocation
@@ -692,13 +694,14 @@
     (.build b)))
 
 (defn- ->web-search-tool ^WebSearchTool
-  [{:keys [search-context-size user-location allowed-domains]}]
+  [{:keys [search-context-size user-location allowed-domains] :as tool}]
   (let [^WebSearchTool$Builder b (WebSearchTool/builder)]
     (.type b WebSearchTool$Type/WEB_SEARCH)
     (when search-context-size
       (.searchContextSize b (WebSearchTool$SearchContextSize/of (name search-context-size))))
     (when user-location (.userLocation b (->web-search-user-location user-location)))
-    (when (seq allowed-domains) (.filters b (->web-search-filters {:allowed-domains allowed-domains})))
+    (when (contains? tool :allowed-domains)
+      (.filters b (->web-search-filters {:allowed-domains allowed-domains})))
     (.build b)))
 
 (defn- ->comparison-filter ^ComparisonFilter [{:keys [type key value]}]

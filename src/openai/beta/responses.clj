@@ -425,16 +425,19 @@
     (when ranking-options (.rankingOptions b (->ranking-options ranking-options)))
     (.build b)))
 
-(defn- ->web-search-tool [{:keys [search-context-size user-location allowed-domains]}]
+(defn- ->web-search-tool [{:keys [search-context-size user-location allowed-domains] :as tool}]
   (let [b (com.openai.models.beta.responses.BetaWebSearchTool/builder)]
     (.type b com.openai.models.beta.responses.BetaWebSearchTool$Type/WEB_SEARCH)
     (when search-context-size
       (.searchContextSize b (com.openai.models.beta.responses.BetaWebSearchTool$SearchContextSize/of
                              (name search-context-size))))
-    (when (seq allowed-domains)
-      (let [fb (com.openai.models.beta.responses.BetaWebSearchTool$Filters/builder)]
-        (.allowedDomains fb ^java.util.List (vec allowed-domains))
-        (.filters b (.build fb))))
+    (when (contains? tool :allowed-domains)
+      (if (seq allowed-domains)
+        (let [fb (com.openai.models.beta.responses.BetaWebSearchTool$Filters/builder)]
+          (.allowedDomains fb ^java.util.List (vec allowed-domains))
+          (.filters b (.build fb)))
+        (throw (ex-info "Explicitly empty :allowed-domains is not supported; omit the key to allow all domains."
+                        {:openai/error :empty-allow-list :option :allowed-domains}))))
     (when user-location
       (let [location user-location
             ^com.openai.models.beta.responses.BetaWebSearchTool$UserLocation$Builder lb

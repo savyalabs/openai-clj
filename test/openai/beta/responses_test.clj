@@ -291,6 +291,14 @@
     (is (.isCustom (nth tools 11)))
     (is (.isToolSearch (nth tools 12)))))
 
+(deftest rejects-explicitly-empty-beta-web-search-domain-allow-list
+  (is (= {:openai/error :empty-allow-list :option :allowed-domains}
+         (ex-data-for #( #'responses/->params
+                        {:model "gpt-beta"
+                         :input "hi"
+                         :tools [{:type :web-search
+                                  :allowed-domains []}]})))))
+
 (deftest rejects-explicitly-empty-beta-mcp-allow-list
   (is (= {:openai/error :empty-allow-list :option :allowed-tools}
          (ex-data-for #( #'responses/->params
