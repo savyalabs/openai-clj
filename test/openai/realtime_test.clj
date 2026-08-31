@@ -4,11 +4,13 @@
             [jsonista.core :as json]
             [openai.realtime :as realtime])
   (:import (java.util.concurrent LinkedBlockingQueue TimeUnit)
+           (java.io ByteArrayInputStream)
            (com.openai.models.beta.realtime.sessions SessionCreateParams
                                                        SessionCreateParams$Modality)
            (com.openai.models.beta.realtime.transcriptionsessions TranscriptionSessionCreateParams)
            (com.openai.models.realtime RealtimeSessionCreateRequest)
-           (com.openai.models.realtime.calls CallAcceptParams CallHangupParams
+           (com.openai.models.realtime.calls CallAcceptParams CallCreateParams
+                                              CallHangupParams
                                               CallReferParams CallRejectParams)
            (com.openai.models.realtime.clientsecrets ClientSecretCreateParams
                                                        ClientSecretCreateParams$ExpiresAfter
@@ -338,3 +340,33 @@
     (is (= "call_1" (.get (.callId hangup))))
     (is (= "tel:+15551234567" (.targetUri refer)))
     (is (= 486 (.get (.statusCode reject))))))
+
+(deftest builds-create-call-params
+  (testing "SDP body"
+    (let [^CallCreateParams p (#'realtime/->create-call-params {:sdp "v=0\r\n"})]
+      (is (= "v=0\r\n" (.sdp p)))
+      (is (not (.isPresent (.session p))))))
+  (testing "session body"
+    (let [^CallCreateParams p (#'realtime/->create-call-params
+                               {:sdp "v=0\r\n"
+                                :session {:model "gpt-realtime"}})]
+      (is (= "v=0\r\n" (.sdp p)))
+      (is (not (nil? (.session p))))
+      (is (= "gpt-realtime"
+             (-> p .session .get .model .get .asString))))))
+
+(deftest creates-sip-call-and-returns-sdp-answer
+  (let [captured (atom nil)
+        response (proxy [com.openai.core.http.HttpResponse] []
+                   (statusCode [] 200)
+                   (headers [] nil)
+                   (body [] (ByteArrayInputStream. (.getBytes "answer" "UTF-8")))
+                   (close [] nil))
+        calls (proxy [com.openai.services.blocking.realtime.CallService] []
+                (create [params] (reset! captured params) response))
+        service (proxy [com.openai.services.blocking.RealtimeService] []
+                  (calls [] calls))
+        client (proxy [com.openai.client.OpenAIClient] []
+                 (realtime [] service))]
+    (is (= "answer" (realtime/create-call client {:sdp "offer"})))
+    (is (= "offer" (.sdp @captured)))))
