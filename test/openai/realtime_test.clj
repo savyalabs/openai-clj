@@ -10,7 +10,7 @@
            (com.openai.models.beta.realtime.transcriptionsessions TranscriptionSessionCreateParams)
            (com.openai.models.realtime RealtimeSessionCreateRequest)
            (com.openai.models.realtime.calls CallAcceptParams CallCreateParams
-                                              CallCreateParams$Body CallHangupParams
+                                              CallHangupParams
                                               CallReferParams CallRejectParams)
            (com.openai.models.realtime.clientsecrets ClientSecretCreateParams
                                                        ClientSecretCreateParams$ExpiresAfter

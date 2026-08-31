@@ -21,10 +21,6 @@
                                              ResponseCreateParams$Beta)
            (com.openai.models.beta.responses.inputtokens InputTokenCountResponse)))
 
-(defn- opt [o]
-  (when (.isPresent ^java.util.Optional o)
-    (.get ^java.util.Optional o)))
-
 (defn- empty-usage []
   (-> (BetaResponseUsage/builder)
       (.inputTokens 10)
@@ -393,7 +389,7 @@
               first)
         rebuilt (#'responses/->input-item m)]
     (is (.isFunctionCall rebuilt))
-    (is (= "call_beta" (opt (.callId (.asFunctionCall rebuilt)))))
+    (is (= "call_beta" (.callId (.asFunctionCall rebuilt))))
     (is (= "{\"city\":\"Denver\"}"
            (.arguments (.asFunctionCall rebuilt))))))
 

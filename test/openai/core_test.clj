@@ -994,7 +994,7 @@
   (let [m (output-item->map (function-call-item "{\"city\":\"Denver\"}"))
         rebuilt (openai/response-input-item m)]
     (is (.isFunctionCall rebuilt))
-    (is (= "call_123" (opt (.callId (.asFunctionCall rebuilt)))))
+    (is (= "call_123" (.callId (.asFunctionCall rebuilt))))
     (is (= "{\"city\":\"Denver\"}"
            (.arguments (.asFunctionCall rebuilt))))))
 
