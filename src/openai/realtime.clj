@@ -223,7 +223,7 @@
 (defn create-call
   "Create a SIP call and return the SDP answer body as a string.
 
-  Supply either `:sdp` or `:session` in the request map."
+  Supply required `:sdp` and optional `:session` in the request map."
   [^OpenAIClient client req]
   (impl/with-api-errors
     (with-open [^HttpResponse response
