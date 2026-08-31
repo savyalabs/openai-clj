@@ -706,6 +706,16 @@
                      {:text "{\"name\":\"ok\",\"score\":0}"}
                      schema))))))
 
+(deftest rejects-structured-output-violating-array-cardinality-constraints
+  (let [schema {:type "array"
+                :items {:type "string"}
+                :minItems 1
+                :maxItems 2}]
+    (is (= [{:path [] :error :min-items :minimum 1 :actual 0}]
+           (:errors (openai/parse-structured-output {:text "[]"} schema))))
+    (is (= [{:path [] :error :max-items :maximum 2 :actual 3}]
+           (:errors (openai/parse-structured-output {:text "[\"a\",\"b\",\"c\"]"} schema))))))
+
 (deftest translates-input-token-count-params
   (let [p (input-token-count-params {:model "gpt-5.2"
                                      :input [{:role :user :content "hi"}]

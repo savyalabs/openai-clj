@@ -1167,6 +1167,8 @@
         maximum (schema-value schema :maximum)
         min-length (schema-value schema :minLength)
         max-length (schema-value schema :maxLength)
+        min-items (schema-value schema :minItems)
+        max-items (schema-value schema :maxItems)
         properties (or (schema-value schema :properties) {})
         items (schema-value schema :items)]
     (vec
@@ -1179,6 +1181,10 @@
         [{:path path :error :min-length :minimum min-length :actual (count data)}])
       (when (and (string? data) (some? max-length) (> (count data) max-length))
         [{:path path :error :max-length :maximum max-length :actual (count data)}])
+      (when (and (sequential? data) (some? min-items) (< (count data) min-items))
+        [{:path path :error :min-items :minimum min-items :actual (count data)}])
+      (when (and (sequential? data) (some? max-items) (> (count data) max-items))
+        [{:path path :error :max-items :maximum max-items :actual (count data)}])
       (when (map? data)
         (mapcat (fn [[key child-schema]]
                   (let [data-key (if (keyword? key) key (keyword (str key)))]
