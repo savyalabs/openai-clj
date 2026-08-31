@@ -22,6 +22,9 @@
                                        RealtimeTranscriptionSessionCreateRequest
                                        RealtimeTranscriptionSessionCreateRequest$Builder)
            (com.openai.models.realtime.calls CallAcceptParams
+                                              CallCreateParams
+                                              CallCreateParams$Body
+                                              CallCreateParams$Body$Builder
                                               CallHangupParams
                                               CallReferParams
                                               CallRejectParams)
@@ -34,6 +37,7 @@
            (java.nio.charset StandardCharsets)
            (java.util.concurrent Executors LinkedBlockingQueue ScheduledExecutorService
                                   TimeUnit)
+           (com.openai.core.http HttpResponse)
            (okhttp3 MediaType OkHttpClient Request Request$Builder RequestBody
                     Response ResponseBody WebSocket WebSocketListener)))
 
@@ -205,6 +209,27 @@
     (sdk-object->map
      (-> client .beta .realtime .transcriptionSessions
          (.create (->transcription-session-params req))))))
+
+(defn- ->create-call-params ^CallCreateParams [{:keys [sdp session]}]
+  (when-not sdp (impl/missing-key! :sdp))
+  (let [^CallCreateParams$Body$Builder body
+        (cond-> (CallCreateParams$Body/builder)
+          sdp (.sdp ^String sdp)
+          session (.session (->realtime-session session)))]
+    (-> (CallCreateParams/builder)
+        (.body (.build body))
+        (.build))))
+
+(defn create-call
+  "Create a SIP call and return the SDP answer body as a string.
+
+  Supply either `:sdp` or `:session` in the request map."
+  [^OpenAIClient client req]
+  (impl/with-api-errors
+    (with-open [^HttpResponse response
+                (-> client .realtime .calls
+                    (.create (->create-call-params req)))]
+      (String. (.readAllBytes (.body response)) StandardCharsets/UTF_8))))
 
 (defn- translation-request-body [req]
   (letfn [(convert [x]
