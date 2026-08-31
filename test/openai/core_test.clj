@@ -781,7 +781,7 @@
           item (first (.asResponse (opt (.input p))))
           fco (.asFunctionCallOutput item)]
       (is (.isFunctionCallOutput item))
-      (is (= "call_123" (.callId fco)))
+      (is (= "call_123" (opt (.callId fco))))
       (is (= "sunny" (.asString (.output fco))))))
   (testing "map output is encoded as JSON"
     (let [p (params {:model "gpt-5.2"
@@ -994,7 +994,7 @@
   (let [m (output-item->map (function-call-item "{\"city\":\"Denver\"}"))
         rebuilt (openai/response-input-item m)]
     (is (.isFunctionCall rebuilt))
-    (is (= "call_123" (.callId (.asFunctionCall rebuilt))))
+    (is (= "call_123" (opt (.callId (.asFunctionCall rebuilt)))))
     (is (= "{\"city\":\"Denver\"}"
            (.arguments (.asFunctionCall rebuilt))))))
 

@@ -1111,9 +1111,9 @@
     (.isFunctionCallOutput item) (let [c (.asFunctionCallOutput item)]
                                    (cond-> {:type :function-call-output
                                             :id (.id c)
-                                            :call-id (.callId c)
                                             :status (impl/->keyword (.asString (.status c)))
                                             :output (function-call-output->clj (.output c))}
+                                     (.isPresent (.callId c)) (assoc :call-id (.get (.callId c)))
                                      (.isPresent (.name c)) (assoc :name (.get (.name c)))
                                      (.isPresent (.namespace c)) (assoc :namespace (.get (.namespace c)))))
     :else {:type :unknown}))
