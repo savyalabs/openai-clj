@@ -37,6 +37,13 @@
       (.totalTokens 30)
       (.build)))
 
+(defn- ex-data-for [f]
+  (try
+    (f)
+    nil
+    (catch clojure.lang.ExceptionInfo e
+      (ex-data e))))
+
 (defn- beta-response
   ([] (beta-response []))
   ([items]
@@ -283,6 +290,15 @@
     (is (.isApplyPatch (nth tools 10)))
     (is (.isCustom (nth tools 11)))
     (is (.isToolSearch (nth tools 12)))))
+
+(deftest rejects-explicitly-empty-beta-mcp-allow-list
+  (is (= {:openai/error :empty-allow-list :option :allowed-tools}
+         (ex-data-for #( #'responses/->params
+                        {:model "gpt-beta"
+                         :input "hi"
+                         :tools [{:type :mcp
+                                  :server-label "docs"
+                                  :allowed-tools []}]})))))
 
 (deftest translates-beta-tool-choice
   (let [function-choice (impl/opt-get

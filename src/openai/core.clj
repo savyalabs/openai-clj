@@ -759,12 +759,16 @@
     (.build b)))
 
 (defn- ->mcp-tool ^Tool$Mcp
-  [{:keys [server-label server-url allowed-tools require-approval headers]}]
+  [{:keys [server-label server-url allowed-tools require-approval headers] :as tool}]
   (let [^Tool$Mcp$Builder b (Tool$Mcp/builder)]
     (when-not server-label (impl/missing-key! :server-label))
     (.serverLabel b ^String server-label)
     (when server-url (.serverUrl b ^String server-url))
-    (when (seq allowed-tools) (.allowedToolsOfMcp b ^java.util.List (vec allowed-tools)))
+    (when (contains? tool :allowed-tools)
+      (if (seq allowed-tools)
+        (.allowedToolsOfMcp b ^java.util.List (vec allowed-tools))
+        (throw (ex-info "Explicitly empty :allowed-tools is not supported; omit the key to allow all tools."
+                        {:openai/error :empty-allow-list :option :allowed-tools}))))
     (when require-approval
       (.requireApproval b (Tool$Mcp$RequireApproval$McpToolApprovalSetting/of (name require-approval))))
     (when headers (.headers b (->mcp-headers headers)))

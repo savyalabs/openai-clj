@@ -499,6 +499,13 @@
       (is (= ["search"] (vec (.asMcp (opt (.allowedTools m))))))
       (is (= "never" (.asString (.asMcpToolApprovalSetting (opt (.requireApproval m))))))
       (is (= "1" (.asStringOrThrow (get (._additionalProperties (opt (.headers m))) "X-Test"))))))
+  (testing "rejects an explicitly empty MCP allow-list"
+    (is (= {:openai/error :empty-allow-list :option :allowed-tools}
+           (ex-data-for #(params {:model "gpt-5.2"
+                                  :input "hi"
+                                  :tools [{:type :mcp
+                                           :server-label "docs"
+                                           :allowed-tools []}]})))))
   (testing "code interpreter defaults to auto container"
     (let [t (first (opt (.tools (params {:model "gpt-5.2"
                                          :input "hi"
