@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.20.0] - 2026-08-30
+
+### Changed
+
+- Breaking: explicitly empty `:allowed-tools` and `:allowed-domains` lists now
+  throw `:openai/error :empty-allow-list` in both stable and beta Responses
+  namespaces. Callers that pass an empty list must omit the key to keep the
+  existing unrestricted behavior, or provide at least one allowed value.
+
+### Fixed
+
+- `parse-structured-output` now enforces `minItems` and `maxItems` for array
+  schemas.
+- String `minLength` and `maxLength` constraints now count Unicode code points,
+  so astral characters such as emoji count as one character.
+
 ## [0.19.1] - 2026-08-30
 
 ### Fixed
