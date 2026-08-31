@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Bump `com.openai/openai-java` and the optional Bedrock transport to 4.54.0.
+
+### Fixed
+
+- Unwrap optional Responses function-call output `:call-id` values when mapping
+  SDK response items back to Clojure maps.
+
+### Added
+
+- Add `openai.realtime/create-call` for creating SIP Realtime calls.
+
 ## [0.20.0] - 2026-08-30
 
 ### Changed
