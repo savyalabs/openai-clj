@@ -1169,6 +1169,8 @@
         max-length (schema-value schema :maxLength)
         min-items (schema-value schema :minItems)
         max-items (schema-value schema :maxItems)
+        actual-length (when (string? data)
+                        (.codePointCount ^String data 0 (.length ^String data)))
         properties (or (schema-value schema :properties) {})
         items (schema-value schema :items)]
     (vec
@@ -1177,10 +1179,10 @@
         [{:path path :error :minimum :minimum minimum :actual data}])
       (when (and (number? data) (some? maximum) (> data maximum))
         [{:path path :error :maximum :maximum maximum :actual data}])
-      (when (and (string? data) (some? min-length) (< (count data) min-length))
-        [{:path path :error :min-length :minimum min-length :actual (count data)}])
-      (when (and (string? data) (some? max-length) (> (count data) max-length))
-        [{:path path :error :max-length :maximum max-length :actual (count data)}])
+      (when (and (some? actual-length) (some? min-length) (< actual-length min-length))
+        [{:path path :error :min-length :minimum min-length :actual actual-length}])
+      (when (and (some? actual-length) (some? max-length) (> actual-length max-length))
+        [{:path path :error :max-length :maximum max-length :actual actual-length}])
       (when (and (sequential? data) (some? min-items) (< (count data) min-items))
         [{:path path :error :min-items :minimum min-items :actual (count data)}])
       (when (and (sequential? data) (some? max-items) (> (count data) max-items))

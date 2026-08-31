@@ -716,6 +716,16 @@
     (is (= [{:path [] :error :max-items :maximum 2 :actual 3}]
            (:errors (openai/parse-structured-output {:text "[\"a\",\"b\",\"c\"]"} schema))))))
 
+(deftest counts-structured-output-string-length-in-code-points
+  (is (= []
+         (:errors (openai/parse-structured-output
+                   {:text "\"😀\""}
+                   {:type "string" :maxLength 1}))))
+  (is (= [{:path [] :error :min-length :minimum 2 :actual 1}]
+         (:errors (openai/parse-structured-output
+                   {:text "\"😀\""}
+                   {:type "string" :minLength 2})))))
+
 (deftest translates-input-token-count-params
   (let [p (input-token-count-params {:model "gpt-5.2"
                                      :input [{:role :user :content "hi"}]
