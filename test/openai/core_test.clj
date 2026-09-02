@@ -1167,9 +1167,8 @@
     (is (= {:name "get_weather" :namespace "weather"}
            (select-keys m [:name :namespace])))))
 
-(deftest maps-response-usage-without-removed-field
-  (is (not (contains? (:usage (response->map (response [])))
-                    (keyword (str "compute" "-units"))))))
+(deftest maps-response-usage-without-compute-units
+  (is (not (contains? (:usage (response->map (response []))) :compute-units))))
 
 (deftest maps-response-to-clojure
   (let [m (response->map (response [(message-item)
