@@ -13,6 +13,10 @@ and `spend-limit-delete`. Project spend limits use the same functions in
 `openai.admin.projects`, with a project ID. Use `service-account-api-key-create`
 with project and service-account IDs to create a service-account API key.
 
+`usage-costs` requires `:start-time` and accepts `:end-time`, `:bucket-width`,
+`:group-by`, `:limit`, `:page`, `:api-key-ids`, `:line-items`, and
+`:project-ids`.
+
 ```clojure
 (admin/project-create client {:name "research"})
 (admin/group-role-create client "group_..." {:role-id "role_..."})

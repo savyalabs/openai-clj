@@ -1120,13 +1120,12 @@
 
 (defn- usage->map [^ResponseUsage u]
   (let [details (.inputTokensDetails u)]
-    (cond-> {:input-tokens (.inputTokens u)
-             :input-tokens-details
-             {:cache-write-tokens (.cacheWriteTokens details)
-              :cached-tokens (.cachedTokens details)}
-             :output-tokens (.outputTokens u)
-             :total-tokens (.totalTokens u)}
-      (.isPresent (.computeUnits u)) (assoc :compute-units (.get (.computeUnits u))))))
+    {:input-tokens (.inputTokens u)
+     :input-tokens-details
+     {:cache-write-tokens (.cacheWriteTokens details)
+      :cached-tokens (.cachedTokens details)}
+     :output-tokens (.outputTokens u)
+     :total-tokens (.totalTokens u)}))
 
 (defn- error->map [^ResponseError e]
   {:code (impl/->keyword (.asString (.code e)))
@@ -1684,10 +1683,9 @@
     (.build b)))
 
 (defn- completion-usage->map [^CompletionUsage u]
-  (cond-> {:prompt-tokens (.promptTokens u)
-           :completion-tokens (.completionTokens u)
-           :total-tokens (.totalTokens u)}
-    (.isPresent (.computeUnits u)) (assoc :compute-units (.get (.computeUnits u)))))
+  {:prompt-tokens (.promptTokens u)
+   :completion-tokens (.completionTokens u)
+   :total-tokens (.totalTokens u)})
 
 (defn- chat-message-tool-call->map [^ChatCompletionMessageToolCall c]
   (cond

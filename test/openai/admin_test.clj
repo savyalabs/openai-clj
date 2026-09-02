@@ -17,7 +17,7 @@
            (com.openai.models.admin.organization.projects.spendlimit ProjectSpendLimit ProjectSpendLimitDeleted ProjectSpendLimit$Currency ProjectSpendLimit$Interval ProjectSpendLimit$Enforcement ProjectSpendLimit$Enforcement$Status)
            (com.openai.models.admin.organization.spendlimit OrganizationSpendLimit OrganizationSpendLimitDeleted OrganizationSpendLimit$Currency OrganizationSpendLimit$Interval OrganizationSpendLimit$Enforcement OrganizationSpendLimit$Enforcement$Status)
            (com.openai.models.admin.organization.spendalerts OrganizationSpendAlert OrganizationSpendAlert$Currency OrganizationSpendAlert$Interval OrganizationSpendAlert$NotificationChannel)
-           (com.openai.models.admin.organization.usage UsageCompletionsParams UsageCompletionsResponse$Data UsageCompletionsResponse$Data$Result$OrganizationUsageCompletionsResult)))
+           (com.openai.models.admin.organization.usage UsageCompletionsParams UsageCostsParams UsageCompletionsResponse$Data UsageCompletionsResponse$Data$Result$OrganizationUsageCompletionsResult)))
 (set! *warn-on-reflection* true)
 (deftest translates-project-create
   (let [^ProjectCreateParams p (#'admin/->project-create-params {:name "research"})]
@@ -103,6 +103,11 @@
     (is (= "1d" (str (impl/opt-get (.bucketWidth p)))))
     (is (= ["model"] (mapv str (impl/opt-get (.groupBy p)))))
     (is (true? (impl/opt-get (.batch p))))))
+
+(deftest builds-usage-costs-params-with-line-items
+  (let [^UsageCostsParams p (#'admin/->usage-costs-params
+                             {:start-time 100 :line-items ["tokens" "storage"]})]
+    (is (= ["tokens" "storage"] (impl/opt-get (.lineItems p))))))
 
 (deftest converts-usage-completions-bucket
   (let [result (-> (UsageCompletionsResponse$Data$Result$OrganizationUsageCompletionsResult/builder)
