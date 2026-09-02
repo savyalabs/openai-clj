@@ -562,7 +562,7 @@
               next-page (impl/opt-get (.nextPage response))]
           (if next-page (recur (assoc opts :page next-page) result) result))))))
 
-(defn- ->usage-costs-params ^com.openai.models.admin.organization.usage.UsageCostsParams [{:keys [start-time end-time bucket-width group-by limit page api-key-ids project-ids]}]
+(defn- ->usage-costs-params ^com.openai.models.admin.organization.usage.UsageCostsParams [{:keys [start-time end-time bucket-width group-by limit page api-key-ids line-items project-ids]}]
   (when-not (some? start-time) (impl/missing-key! :start-time))
   (let [^com.openai.models.admin.organization.usage.UsageCostsParams$Builder b (com.openai.models.admin.organization.usage.UsageCostsParams/builder)]
     (.startTime b (long start-time))
@@ -571,6 +571,7 @@
     (when group-by (.groupBy b ^java.util.List (mapv #(com.openai.models.admin.organization.usage.UsageCostsParams$GroupBy/of (impl/enum-name %)) group-by)))
     (when limit (.limit b (long limit))) (when page (.page b ^String page))
     (when api-key-ids (.apiKeyIds b ^java.util.List api-key-ids))
+    (when line-items (.lineItems b ^java.util.List line-items))
     (when project-ids (.projectIds b ^java.util.List project-ids))
     (.build b)))
 (defn- usage-cost-amount->map [^com.openai.models.admin.organization.usage.UsageCostsResponse$Data$Result$OrganizationCostsResult$Amount a]
@@ -586,7 +587,13 @@
 (defn- usage-costs-bucket->map [^com.openai.models.admin.organization.usage.UsageCostsResponse$Data bucket]
   {:start-time (.startTime bucket) :end-time (.endTime bucket)
    :results (mapv (fn [^com.openai.models.admin.organization.usage.UsageCostsResponse$Data$Result r] (usage-costs-result->map (.asOrganizationCosts r))) (.results bucket))})
-(defn usage-costs [^OpenAIClient client opts]
+(defn usage-costs
+  "List organization usage costs.
+
+  Options include `:start-time` (required), `:end-time`, `:bucket-width`,
+  `:group-by`, `:limit`, `:page`, `:api-key-ids`, `:line-items`, and
+  `:project-ids`."
+  [^OpenAIClient client opts]
   (impl/with-api-errors
     (let [^UsageService s (.usage (organization client))]
       (loop [request opts, result []]

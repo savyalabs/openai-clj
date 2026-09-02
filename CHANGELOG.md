@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-02
+
+### Changed
+
+- Bump `com.openai/openai-java` and the optional Bedrock transport to 4.56.0.
+- Add `:line-items` to `usage-costs` options.
+- Add `:max-messages` incomplete-detail reason mapping.
+
+### Breaking
+
+- Remove `:compute-units` from both the Responses and Completions usage maps.
+  It was present only in 0.22.0 because openai-java 4.55.0 briefly added it
+  and 4.56.0 removed it again.
+
 ## [0.22.0] - 2026-08-31
 
 ### Changed

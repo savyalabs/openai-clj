@@ -108,12 +108,6 @@
 (defn- response->map-with-options [r opts]
   (#'openai/response->map r opts))
 
-(defn- usage->map [u]
-  (#'openai/usage->map u))
-
-(defn- completion-usage->map [u]
-  (#'openai/completion-usage->map u))
-
 (defn- response-item->map [item]
   (#'openai/response-item->map item))
 
@@ -1173,36 +1167,9 @@
     (is (= {:name "get_weather" :namespace "weather"}
            (select-keys m [:name :namespace])))))
 
-(deftest maps-response-usage-compute-units-when-present
-  (let [usage (-> (ResponseUsage/builder)
-                  (.inputTokens 1)
-                  (.inputTokensDetails (-> (ResponseUsage$InputTokensDetails/builder)
-                                           (.cacheWriteTokens 0)
-                                           (.cachedTokens 0)
-                                           (.build)))
-                  (.outputTokens 2)
-                  (.outputTokensDetails (-> (ResponseUsage$OutputTokensDetails/builder)
-                                            (.reasoningTokens 0)
-                                            (.build)))
-                  (.totalTokens 3)
-                  (.computeUnits 4)
-                  (.build))]
-    (is (= 4 (:compute-units (usage->map usage))))))
-
-(deftest omits-response-usage-compute-units-when-absent
-  (let [usage (-> (ResponseUsage/builder)
-                  (.inputTokens 1)
-                  (.inputTokensDetails (-> (ResponseUsage$InputTokensDetails/builder)
-                                           (.cacheWriteTokens 0)
-                                           (.cachedTokens 0)
-                                           (.build)))
-                  (.outputTokens 2)
-                  (.outputTokensDetails (-> (ResponseUsage$OutputTokensDetails/builder)
-                                            (.reasoningTokens 0)
-                                            (.build)))
-                  (.totalTokens 3)
-                  (.build))]
-    (is (not (contains? (usage->map usage) :compute-units)))))
+(deftest maps-response-usage-without-removed-field
+  (is (not (contains? (:usage (response->map (response [])))
+                    (keyword (str "compute" "-units"))))))
 
 (deftest maps-response-to-clojure
   (let [m (response->map (response [(message-item)
@@ -1426,6 +1393,16 @@
 (deftest maps-incomplete-details
   (let [m (response->map (incomplete-response []))]
     (is (= {:reason :max-output-tokens} (:incomplete-details m)))))
+
+(deftest maps-max-messages-incomplete-details
+  (let [r (-> (incomplete-response [])
+              .toBuilder
+              (.incompleteDetails (-> (Response$IncompleteDetails/builder)
+                                      (.reason Response$IncompleteDetails$Reason/MAX_MESSAGES)
+                                      (.build)))
+              (.build))]
+    (is (= {:reason :max-messages}
+           (:incomplete-details (response->map r))))))
 
 (deftest response-map-keeps-garbage-arguments-raw
   (let [m (response->map (response [(function-call-item "{not json}")]))]
@@ -2199,23 +2176,6 @@
             :text "Use get_weather."
             :service-tier :default}
            m))))
-
-(deftest maps-completion-usage-compute-units-when-present
-  (let [usage (-> (CompletionUsage/builder)
-                  (.promptTokens 1)
-                  (.completionTokens 2)
-                  (.totalTokens 3)
-                  (.computeUnits 4)
-                  (.build))]
-    (is (= 4 (:compute-units (completion-usage->map usage))))))
-
-(deftest omits-completion-usage-compute-units-when-absent
-  (let [usage (-> (CompletionUsage/builder)
-                  (.promptTokens 1)
-                  (.completionTokens 2)
-                  (.totalTokens 3)
-                  (.build))]
-    (is (not (contains? (completion-usage->map usage) :compute-units)))))
 
 (deftest chat-completion-map-keeps-garbage-arguments-raw
   (let [m (chat-completion->map (chat-completion "{not json}"))]
