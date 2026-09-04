@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.24.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.25.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.24.0"]
+[net.clojars.savya/openai-clj "0.25.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.57.0](https://github.com/openai/openai-java/releases/tag/v4.57.0).
+Tracks [`com.openai/openai-java` 4.58.0](https://github.com/openai/openai-java/releases/tag/v4.58.0).
 
 ## Providers
 
@@ -347,7 +347,7 @@ WebSocket, session, client-secret, transcription, translation, and SIP call
 helpers. `openai.content-provenance-checks` contains Content Provenance Checks.
 `openai.graders` maps to the stable grader-model service. Model names are passed
 through as strings, including `"gpt-6-astra"`. The service exposes
-no operations in SDK 4.57.0.
+no operations in SDK 4.58.0.
 
 List functions remain eager by default. Additive lazy siblings cover models,
 files, batches, stored Chat Completions, response input items, vector stores and
