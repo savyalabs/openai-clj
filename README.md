@@ -2,7 +2,7 @@
 
 [![Clojars Project](https://img.shields.io/clojars/v/net.clojars.savya/openai-clj.svg)](https://clojars.org/net.clojars.savya/openai-clj)
 [![cljdoc](https://cljdoc.org/badge/net.clojars.savya/openai-clj)](https://cljdoc.org/d/net.clojars.savya/openai-clj/CURRENT)
-[![test](https://github.com/jsavyasachi/openai-clj/actions/workflows/test.yml/badge.svg)](https://github.com/jsavyasachi/openai-clj/actions/workflows/test.yml)
+[![test](https://github.com/savyalabs/openai-clj/actions/workflows/test.yml/badge.svg)](https://github.com/savyalabs/openai-clj/actions/workflows/test.yml)
 
 Clojure client for the OpenAI API and OpenAI-compatible providers. It uses the
 official Java SDK.

@@ -23,12 +23,12 @@
                 :version version
                 :basis @basis
                 :src-dirs ["src"]
-                :scm {:url "https://github.com/jsavyasachi/openai-clj"
-                      :connection "scm:git:https://github.com/jsavyasachi/openai-clj.git"
-                      :developerConnection "scm:git:ssh://git@github.com/jsavyasachi/openai-clj.git"
+                :scm {:url "https://github.com/savyalabs/openai-clj"
+                      :connection "scm:git:https://github.com/savyalabs/openai-clj.git"
+                      :developerConnection "scm:git:ssh://git@github.com/savyalabs/openai-clj.git"
                       :tag (str "v" version)}
                 :pom-data [[:description "Idiomatic Clojure wrapper over the official OpenAI Java SDK."]
-                           [:url "https://github.com/jsavyasachi/openai-clj"]
+                           [:url "https://github.com/savyalabs/openai-clj"]
                            [:licenses
                             [:license
                              [:name "Eclipse Public License 2.0"]
