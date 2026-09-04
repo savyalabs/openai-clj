@@ -1116,6 +1116,17 @@
                                      (.isPresent (.callId c)) (assoc :call-id (.get (.callId c)))
                                      (.isPresent (.name c)) (assoc :name (.get (.name c)))
                                      (.isPresent (.namespace c)) (assoc :namespace (.get (.namespace c)))))
+    (.isConfigurationUpdate item)
+    (let [c (.asConfigurationUpdate item)]
+      (cond-> {:type :configuration-update
+               :id (.id c)}
+        (.isPresent (.reasoning c))
+        (assoc :reasoning
+               (let [r ^com.openai.models.responses.ResponseConfigurationUpdateItem$Reasoning
+                       (impl/opt-get (.reasoning c))]
+                 (cond-> {}
+                   (.isPresent (.effort r))
+                   (assoc :effort (impl/->keyword (.asString ^com.openai.models.ReasoningEffort (impl/opt-get (.effort r))))))))))
     :else {:type :unknown}))
 
 (defn- usage->map [^ResponseUsage u]
@@ -1128,8 +1139,10 @@
      :total-tokens (.totalTokens u)}))
 
 (defn- error->map [^ResponseError e]
-  {:code (impl/->keyword (.asString (.code e)))
-   :message (.message e)})
+  (cond-> {:code (impl/->keyword (.asString (.code e)))
+           :message (.message e)}
+    (.isPresent (.misalignment e))
+    (assoc :misalignment (impl/misalignment->map (impl/opt-get (.misalignment e))))))
 
 (defn- incomplete-details->map [^Response$IncompleteDetails d]
   (cond-> {}

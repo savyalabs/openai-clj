@@ -70,3 +70,30 @@
                      (.object_ (JsonValue/from "video.deleted")) (.build))]
     (is (= {:id "video_1" :deleted true}
            (when convert (convert response))))))
+
+(deftest converts-video-error-misalignment
+  (let [misalignment (-> (com.openai.models.videos.VideoCreateError$Misalignment/builder)
+                         (.detailedExplanation "The video request needs review.")
+                         (.errorType "potentially_unintended_data_access")
+                         (.steer (-> (com.openai.models.videos.VideoCreateError$Misalignment$Steer/builder)
+                                     (.message "Please revise the prompt.")
+                                     (.build)))
+                         (.build))
+        error (-> (VideoCreateError/builder)
+                  (.code "render_failed")
+                  (.message "Could not render")
+                  (.misalignment misalignment)
+                  (.build))]
+    (is (= {:code "render_failed"
+            :message "Could not render"
+            :misalignment {:detailed-explanation "The video request needs review."
+                           :error-type :potentially-unintended-data-access
+                           :steer {:message "Please revise the prompt."}}}
+           (#'videos/video-error->map error))))
+  (let [mapped (#'videos/video-error->map
+                (-> (VideoCreateError/builder)
+                    (.code "render_failed")
+                    (.message "Could not render")
+                    (.build)))]
+    (is (= {:code "render_failed" :message "Could not render"} mapped))
+    (is (not (contains? mapped :misalignment)))))

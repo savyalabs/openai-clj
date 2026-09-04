@@ -8,3 +8,7 @@ request headers to `verify-signature` or `unwrap`.
 (webhooks/verify-signature webhook-client raw-body headers)
 (webhooks/unwrap webhook-client raw-body headers)
 ```
+
+Webhook payloads can include the `safety_alert.created` and
+`safety_org_alert.created` event types. `unwrap` converts these events using the
+same generic SDK object mapping as other webhook events.

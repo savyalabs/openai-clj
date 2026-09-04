@@ -26,7 +26,9 @@
     (when seconds (.seconds b (VideoSeconds/of (str seconds))))
     (when input-reference (set-create-reference! b input-reference)) (.build b)))
 (defn- video-error->map [^VideoCreateError error]
-  {:code (.code error) :message (.message error)})
+  (cond-> {:code (.code error) :message (.message error)}
+    (.isPresent (.misalignment error))
+    (assoc :misalignment (impl/misalignment->map (impl/opt-get (.misalignment error))))))
 
 (defn- video->map [^Video v]
   (cond-> {:id (.id v) :status (impl/->keyword (.asString (.status v)))

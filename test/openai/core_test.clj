@@ -111,6 +111,9 @@
 (defn- response-item->map [item]
   (#'openai/response-item->map item))
 
+(defn- error->map [error]
+  (#'openai/error->map error))
+
 (defn- output-item->map [item]
   (#'openai/output-item->map item))
 
@@ -2280,10 +2283,58 @@
                         :function {:name "get_weather"
                                    :arguments {:location "Denver"}}}]}
          (stored-chat-message->map
-          (-> (ChatCompletionStoreMessage/builder)
+         (-> (ChatCompletionStoreMessage/builder)
               (.id "msg_1")
               (.role (com.openai.core.JsonValue/from "assistant"))
               (.content "Calling a tool")
               (.refusal "no")
               (.toolCalls [(chat-tool-call "{\"location\":\"Denver\"}")])
               (.build))))))
+
+(deftest maps-configuration-update-response-item
+  (let [reasoning (-> (com.openai.models.responses.ResponseConfigurationUpdateItem$Reasoning/builder)
+                      (.effort (com.openai.models.ReasoningEffort/of "high"))
+                      (.build))
+        item (ResponseItem/ofConfigurationUpdate
+              (-> (com.openai.models.responses.ResponseConfigurationUpdateItem/builder)
+                  (.id "cfg_1")
+                  (.reasoning reasoning)
+                  (.build)))]
+    (is (.isConfigurationUpdate item))
+    (is (= {:type :configuration-update
+            :id "cfg_1"
+            :reasoning {:effort :high}}
+           (response-item->map item))))
+  (let [item (ResponseItem/ofConfigurationUpdate
+              (-> (com.openai.models.responses.ResponseConfigurationUpdateItem/builder)
+                  (.id "cfg_2")
+                  (.build)))
+        mapped (response-item->map item)]
+    (is (= {:type :configuration-update :id "cfg_2"} mapped))
+    (is (not (contains? mapped :reasoning)))))
+
+(deftest maps-response-error-misalignment
+  (let [misalignment (-> (com.openai.models.responses.ResponseError$Misalignment/builder)
+                         (.detailedExplanation "The request crossed a boundary.")
+                         (.errorType "potentially_unintended_data_access")
+                         (.steer (-> (com.openai.models.responses.ResponseError$Misalignment$Steer/builder)
+                                     (.message "Please use a narrower request.")
+                                     (.build)))
+                         (.build))
+        error (-> (com.openai.models.responses.ResponseError/builder)
+                  (.code (com.openai.models.responses.ResponseError$Code/MISALIGNMENT_POLICY_VIOLATION))
+                  (.message "Request paused")
+                  (.misalignment misalignment)
+                  (.build))]
+    (is (= {:code :misalignment-policy-violation
+            :message "Request paused"
+            :misalignment {:detailed-explanation "The request crossed a boundary."
+                           :error-type :potentially-unintended-data-access
+                           :steer {:message "Please use a narrower request."}}}
+           (error->map error))))
+  (let [mapped (error->map (-> (com.openai.models.responses.ResponseError/builder)
+                               (.code (com.openai.models.responses.ResponseError$Code/INVALID_PROMPT))
+                               (.message "Bad prompt")
+                               (.build)))]
+    (is (= {:code :invalid-prompt :message "Bad prompt"} mapped))
+    (is (not (contains? mapped :misalignment)))))
