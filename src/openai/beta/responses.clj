@@ -742,8 +742,25 @@
     (vector? value) (mapv normalize-value value)
     :else value))
 
+(defn- normalize-response-item [item]
+  (let [item (normalize-value item)]
+    (if (= :configuration-update (:type item))
+      (cond-> {:type :configuration-update
+               :id (:id item)}
+        (:reasoning item)
+        (assoc :reasoning
+               (cond-> {}
+                 (get-in item [:reasoning :effort])
+                 (assoc :effort (impl/->keyword (get-in item [:reasoning :effort]))))))
+      item)))
+
+(defn- normalize-error [error]
+  (if (:misalignment error)
+    (update error :misalignment impl/misalignment->map)
+    error))
+
 (defn- beta-response-data->map ^clojure.lang.IPersistentMap [m]
-  (let [items (mapv normalize-value (:output m))]
+  (let [items (mapv normalize-response-item (:output m))]
     (cond-> {:id (:id m)
              :model (:model m)
              :output items
@@ -751,7 +768,7 @@
              :created-at (:created-at m)}
       (:status m) (assoc :status (:status m))
       (:usage m) (assoc :usage (:usage m))
-      (:error m) (assoc :error (:error m))
+      (:error m) (assoc :error (normalize-error (:error m)))
       (:incomplete-details m) (assoc :incomplete-details (:incomplete-details m))
       (:previous-response-id m) (assoc :previous-response-id (:previous-response-id m))
       (:prompt m) (assoc :prompt (:prompt m))
@@ -763,7 +780,7 @@
 (defn- beta-compacted-response->map ^clojure.lang.IPersistentMap
   [^BetaCompactedResponse response]
   (let [m (normalize-value (impl/sdk-object->clj response))
-        items (mapv normalize-value (:output m))]
+        items (mapv normalize-response-item (:output m))]
     {:id (:id m)
      :output items
      :text (impl/output-text items)

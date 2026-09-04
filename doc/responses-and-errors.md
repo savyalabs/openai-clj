@@ -21,6 +21,8 @@ currently normalized with explicit types:
 `:file-search-call`, `:code-interpreter-call`, `:image-generation-call`,
 `:mcp-call`, `:mcp-list-tools`, `:mcp-approval-request`,
 `:custom-tool-call`, `:local-shell-call`, `:computer-call`, and `:unknown`.
+Configuration-update items use `:type :configuration-update` and include their
+`:id`; when reported, reasoning is mapped as `{:reasoning {:effort <keyword>}}`.
 
 Incomplete responses include `:incomplete-details`, for example
 `{:reason :max-output-tokens}`.
@@ -35,10 +37,11 @@ All failures throw `ex-info` keyed `:openai/error` in `ex-data`:
   :error-type <kw>}` where `:error-type` is one of `:bad-request`,
   `:unauthorized`, `:permission-denied`, `:not-found`,
   `:unprocessable-entity`, `:rate-limit`, `:internal-server`, or
-  `:unexpected-status`. The original SDK exception is preserved as
-  `(ex-cause e)`.
+  `:unexpected-status`. Responses and video creation errors may also include
+  `:misalignment`, with optional `:detailed-explanation`, `:error-type` (a
+  kebab-case keyword), and `:steer` keys. The original SDK exception is
+  preserved as `(ex-cause e)`.
 - Network/IO failures carry `{:openai/error :io-error}`, original exception as
   cause.
 
 Other SDK exceptions (e.g. `OpenAIInvalidDataException`) propagate unchanged.
-

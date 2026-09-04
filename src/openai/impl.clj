@@ -211,6 +211,11 @@
        x))
    (json/read-value (json/write-value-as-string value) json-mapper)))
 
+(defn misalignment->map [misalignment]
+  (let [m (if (map? misalignment) misalignment (sdk-object->clj misalignment))]
+    (cond-> m
+      (:error-type m) (update :error-type ->keyword))))
+
 (defn preserve-raw
   "Attach the complete parsed SDK object under `:openai/raw` when requested."
   [curated value {:keys [lossless?]}]

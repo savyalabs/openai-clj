@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.23.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.24.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.23.0"]
+[net.clojars.savya/openai-clj "0.24.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.56.0](https://github.com/openai/openai-java/releases/tag/v4.56.0).
+Tracks [`com.openai/openai-java` 4.57.0](https://github.com/openai/openai-java/releases/tag/v4.57.0).
 
 ## Providers
 
@@ -196,6 +196,10 @@ Responses tools cover `:function`, `:web-search`, `:file-search`,
 `:tool-search-output`, and `:mcp-approval-response` items.
 
 Response maps preserve all SDK output-item variants as kebab-case Clojure maps.
+This includes `:configuration-update` items, whose optional reasoning effort is
+returned as `{:reasoning {:effort <keyword>}}`. Response API errors expose an
+optional `:misalignment` map with `:detailed-explanation`, `:error-type` (a
+kebab-case keyword), and `:steer` when reported.
 Pass `:lossless? true` to `create-response`, or as the optional argument to
 `get-response`, `cancel-response`, and `compact`, to retain the curated map and
 also include the SDK's complete parsed JSON under `:openai/raw`.
@@ -295,6 +299,7 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
          '[openai.audio :as audio]
          '[openai.content-provenance-checks :as cpc]
          '[openai.moderations :as moderations]
+         '[openai.safety :as safety]
          '[openai.completions :as completions]
          '[openai.vector-stores :as vector-stores]
          '[openai.uploads :as uploads]
@@ -316,6 +321,7 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
                              :input "Hello"})
 (cpc/create client {:file "image.png"})
 (moderations/create client {:input "text"})
+(safety/retrieve client "safety_alert_...")
 (completions/create client {:model "gpt-3.5-turbo-instruct" :prompt "Once"})
 (vector-stores/create client {:name "docs" :file-ids ["file_..."]})
 (uploads/create client {:filename "data.jsonl" :bytes 100
@@ -339,8 +345,9 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
 batches, models, and stored Chat Completions. `openai.realtime` contains
 WebSocket, session, client-secret, transcription, translation, and SIP call
 helpers. `openai.content-provenance-checks` contains Content Provenance Checks.
-`openai.graders` maps to the stable grader-model service. The service exposes
-no operations in SDK 4.56.0.
+`openai.graders` maps to the stable grader-model service. Model names are passed
+through as strings, including `"gpt-6-astra"`. The service exposes
+no operations in SDK 4.57.0.
 
 List functions remain eager by default. Additive lazy siblings cover models,
 files, batches, stored Chat Completions, response input items, vector stores and

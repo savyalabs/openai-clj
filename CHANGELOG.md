@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-09-03
+
+### Changed
+
+- Bump `com.openai/openai-java` and the optional Bedrock transport to 4.57.0.
+- Add `:misalignment` to Responses, beta Responses, and video creation error
+  maps.
+- Map Responses configuration-update items with optional reasoning effort.
+- Support the `gpt-6-astra` model name through the existing string model fields.
+
+### Added
+
+- Add `openai.safety/retrieve` for retrieving safety alerts.
+- Document the `safety_alert.created` and `safety_org_alert.created` webhook
+  event types.
+
 ## [0.23.0] - 2026-09-02
 
 ### Changed
