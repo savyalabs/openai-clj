@@ -359,7 +359,9 @@
                              :message.output-text.logprobs]
                    :truncation :auto
                    :prompt-cache-key "cache-key"
-                   :prompt-cache-options {:mode :standard :ttl :24h}
+                   :prompt-cache-options {:mode :standard
+                                          :ttl :24h
+                                          :comparison-response-id "resp_123"}
                    :safety-identifier "safe-user"
                    :service-tier :priority
                    :previous-response-id "resp_123"
@@ -379,6 +381,7 @@
     (is (= "cache-key" (opt (.promptCacheKey p))))
     (is (= "standard" (-> p .promptCacheOptions opt .mode opt .asString)))
     (is (= "24h" (-> p .promptCacheOptions opt .ttl opt .asString)))
+    (is (= "resp_123" (-> p .promptCacheOptions opt .comparisonResponseId opt)))
     (is (= "safe-user" (opt (.safetyIdentifier p))))
     (is (= "priority" (.asString (opt (.serviceTier p)))))
     (is (= "resp_123" (opt (.previousResponseId p))))
