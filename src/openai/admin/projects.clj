@@ -504,12 +504,18 @@
 (defn service-account-list ([^OpenAIClient client ^String project-id] (service-account-list client project-id {})) ([^OpenAIClient client ^String project-id opts] (impl/with-api-errors (let [^com.openai.services.blocking.admin.organization.projects.ServiceAccountService s (.serviceAccounts (projects-service client)) ^com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountListPage p (.list s (->service-account-list-params project-id opts))] (mapv service-account->map (impl/all-pages p))))))
 (defn service-account-delete [^OpenAIClient client ^String project-id ^String id] (impl/with-api-errors (let [^com.openai.services.blocking.admin.organization.projects.ServiceAccountService s (.serviceAccounts (projects-service client)) ^com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountDeleteResponse r (.delete s (-> (com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountDeleteParams/builder) (.projectId project-id) (.serviceAccountId id) (.build)))] {:id (.id r) :deleted (.deleted r)})))
 
-(defn- ->service-account-api-key-create-params ^ApiKeyCreateParams [^String project-id ^String service-account-id {:keys [name scopes]}]
+(defn- ->service-account-api-key-create-params
+  ^ApiKeyCreateParams [^String project-id ^String service-account-id
+                       {:keys [name scopes expires-in-seconds]}]
   (when-not project-id (impl/missing-key! :project-id)) (when-not service-account-id (impl/missing-key! :service-account-id))
   (let [b (ApiKeyCreateParams/builder)] (.projectId b project-id) (.serviceAccountId b service-account-id)
-    (when name (.name b ^String name)) (when scopes (.scopes b ^java.util.List scopes)) (.build b)))
+    (when name (.name b ^String name))
+    (when scopes (.scopes b ^java.util.List scopes))
+    (when expires-in-seconds (.expiresInSeconds b (long expires-in-seconds)))
+    (.build b)))
 (defn- service-account-api-key-create-response->map [^ApiKeyCreateResponse a]
-  {:id (.id a) :created-at (.createdAt a) :name (.name a) :value (.value a)})
+  (cond-> {:id (.id a) :created-at (.createdAt a) :name (.name a) :value (.value a)}
+    (.isPresent (.expiresAt a)) (assoc :expires-at (impl/opt-get (.expiresAt a)))))
 (defn service-account-api-key-create [^OpenAIClient client ^String project-id ^String service-account-id opts]
   (impl/with-api-errors (let [^com.openai.services.blocking.admin.organization.projects.serviceaccounts.ApiKeyService s (.apiKeys (.serviceAccounts (projects-service client)))]
                           (service-account-api-key-create-response->map (.create s (->service-account-api-key-create-params project-id service-account-id opts))))))
