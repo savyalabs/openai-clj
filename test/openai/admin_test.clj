@@ -11,7 +11,7 @@
            (com.openai.models.admin.organization.projects Project ProjectCreateParams)
            (com.openai.models.admin.organization.projects.apikeys ApiKeyListParams ApiKeyListParams$OwnerProjectAccess ProjectApiKey ProjectApiKey$Owner ProjectApiKey$OwnerProjectAccess)
            (com.openai.models.admin.organization.projects.ratelimits ProjectRateLimit RateLimitUpdateRateLimitParams)
-           (com.openai.models.admin.organization.projects.serviceaccounts ProjectServiceAccount ServiceAccountCreateParams)
+           (com.openai.models.admin.organization.projects.serviceaccounts ProjectServiceAccount ServiceAccountCreateParams ServiceAccountCreateResponse ServiceAccountCreateResponse$ApiKey ServiceAccountCreateResponse$Role)
            (com.openai.models.admin.organization.projects.serviceaccounts.apikeys ApiKeyCreateResponse)
            (com.openai.models.admin.organization.projects.users.roles RoleListResponse)
            (com.openai.models.admin.organization.projects.spendlimit ProjectSpendLimit ProjectSpendLimitDeleted ProjectSpendLimit$Currency ProjectSpendLimit$Interval ProjectSpendLimit$Enforcement ProjectSpendLimit$Enforcement$Status)
@@ -180,12 +180,14 @@
               :owner {} :redacted-value "sk-...abc"}
              (f k)))
       (let [k (-> (ProjectApiKey/builder) (.id "key_2") (.createdAt 456)
+                  (.expiresAt 789)
                   (.lastUsedAt ^com.openai.core.JsonField missing)
                   (.name "Deploy") (.owner owner)
                   (.ownerProjectAccess ProjectApiKey$OwnerProjectAccess/ACTIVE)
                   (.redactedValue "sk-...def") (.build))]
         (is (= {:id "key_2" :created-at 456 :name "Deploy" :owner {}
-                :owner-project-access :active :redacted-value "sk-...def"}
+                :expires-at 789 :owner-project-access :active
+                :redacted-value "sk-...def"}
                (f k)))))))
 
 (deftest converts-project-user-role-present-only
@@ -203,9 +205,25 @@
 
 (deftest builds-project-service-account-create-params
   (when-let [f (some-> (ns-resolve 'openai.admin.projects '->service-account-create-params) deref)]
-    (let [^ServiceAccountCreateParams p (f "proj_1" {:name "deploy"})]
+    (let [^ServiceAccountCreateParams p
+          (f "proj_1" {:name "deploy" :expires-in-seconds 3600})]
       (is (= "proj_1" (impl/opt-get (.projectId p))))
-      (is (= "deploy" (.name p))))))
+      (is (= "deploy" (.name p)))
+      (is (= 3600 (impl/opt-get (.expiresInSeconds p)))))))
+
+(deftest converts-project-service-account-create-response
+  (when-let [f (some-> (ns-resolve 'openai.admin.projects 'service-account-create->map) deref)]
+    (let [api-key (-> (ServiceAccountCreateResponse$ApiKey/builder)
+                      (.id "key_1") (.createdAt 456) (.expiresAt 789)
+                      (.name "Initial key") (.value "sk-secret") (.build))
+          response (-> (ServiceAccountCreateResponse/builder)
+                       (.id "svc_1") (.apiKey api-key) (.createdAt 123)
+                       (.name "Deploy") (.role (ServiceAccountCreateResponse$Role/of "member"))
+                       (.build))]
+      (is (= {:id "svc_1" :created-at 123 :name "Deploy"
+              :api-key {:id "key_1" :created-at 456 :expires-at 789
+                        :name "Initial key" :value "sk-secret"}}
+             (f response))))))
 
 (deftest converts-project-service-account
   (when-let [f (some-> (ns-resolve 'openai.admin.projects 'service-account->map) deref)]

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `com.openai/openai-java` and the optional Bedrock transport to 4.61.0.
+
+### Added
+
+- Add `:expires-at` to `project-api-key->map` and the nested API key returned
+  by service-account creation.
+- Add `:expires-in-seconds` to `->service-account-create-params`.
+
 ## [0.26.0] - 2026-09-09
 
 ### Changed
