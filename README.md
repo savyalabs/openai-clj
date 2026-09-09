@@ -17,13 +17,13 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.25.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.26.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.25.0"]
+[net.clojars.savya/openai-clj "0.26.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
