@@ -205,9 +205,11 @@
 
 (deftest builds-project-service-account-create-params
   (when-let [f (some-> (ns-resolve 'openai.admin.projects '->service-account-create-params) deref)]
-    (let [^ServiceAccountCreateParams p (f "proj_1" {:name "deploy"})]
+    (let [^ServiceAccountCreateParams p
+          (f "proj_1" {:name "deploy" :expires-in-seconds 3600})]
       (is (= "proj_1" (impl/opt-get (.projectId p))))
-      (is (= "deploy" (.name p))))))
+      (is (= "deploy" (.name p)))
+      (is (= 3600 (impl/opt-get (.expiresInSeconds p)))))))
 
 (deftest converts-project-service-account
   (when-let [f (some-> (ns-resolve 'openai.admin.projects 'service-account->map) deref)]

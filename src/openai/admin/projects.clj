@@ -494,7 +494,13 @@
 
 ;; Service accounts
 
-(defn- ->service-account-create-params [^String project-id {:keys [name]}] (when-not name (impl/missing-key! :name)) (-> (com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountCreateParams/builder) (.projectId project-id) (.name ^String name) (.build)))
+(defn- ->service-account-create-params [^String project-id {:keys [name expires-in-seconds]}]
+  (when-not name (impl/missing-key! :name))
+  (let [b (-> (com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountCreateParams/builder)
+              (.projectId project-id)
+              (.name ^String name))]
+    (when expires-in-seconds (.expiresInSeconds b (long expires-in-seconds)))
+    (.build b)))
 (defn- service-account->map [^com.openai.models.admin.organization.projects.serviceaccounts.ProjectServiceAccount a] {:id (.id a) :created-at (.createdAt a) :name (.name a) :role (impl/->keyword (.role a))})
 (defn- service-account-create->map [^com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountCreateResponse a]
   (cond-> {:id (.id a) :created-at (.createdAt a) :name (.name a)} (.isPresent (.apiKey a)) (assoc :api-key (let [^com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountCreateResponse$ApiKey k (impl/opt-get (.apiKey a))] {:id (.id k) :created-at (.createdAt k) :name (.name k) :value (.value k)}))))
