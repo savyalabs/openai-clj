@@ -5,6 +5,8 @@
   (:import (com.openai.core JsonValue)
            (com.openai.models.beta.responses BetaCompactedResponse
                                              BetaResponse
+                                             BetaResponse$PromptCacheDiagnostics$CacheMiss
+                                             BetaResponse$PromptCacheDiagnostics$CacheMiss$Reason
                                              BetaResponseStatus
                                              BetaResponseStreamEvent
                                              BetaResponseTextDeltaEvent
@@ -379,6 +381,30 @@
     (is (= "pmpt_beta" (get-in m [:prompt :id])))
     (is (= "4" (get-in m [:prompt :version])))
     (is (= "24h" (:prompt-cache-retention m)))))
+
+(deftest maps-beta-response-prompt-cache-diagnostics
+  (let [cache-miss (-> (BetaResponse$PromptCacheDiagnostics$CacheMiss/builder)
+                       (.cacheMissedTokens 120)
+                       (.reason BetaResponse$PromptCacheDiagnostics$CacheMiss$Reason/MODEL_CHANGED)
+                       (.comparisonReusableTokens 80)
+                       (.build))
+        cache-miss-response (-> (beta-response)
+                                .toBuilder
+                                (.promptCacheDiagnostics cache-miss)
+                                (.build))
+        cache-hit-response (-> (beta-response)
+                               .toBuilder
+                               (.promptCacheDiagnosticsCacheHit)
+                               (.build))]
+    (is (= {:type :cache-miss
+            :cache-missed-tokens 120
+            :reason :model-changed
+            :comparison-reusable-tokens 80}
+           (:prompt-cache-diagnostics
+            (#'responses/beta-response->map cache-miss-response))))
+    (is (= {:type :cache-hit}
+           (:prompt-cache-diagnostics
+            (#'responses/beta-response->map cache-hit-response))))))
 
 (deftest round-trips-beta-output-function-call-as-input
   (let [item (BetaResponseOutputItem/ofFunctionCall

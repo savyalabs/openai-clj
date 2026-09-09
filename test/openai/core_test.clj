@@ -34,6 +34,8 @@
                                         ResponseIncludable
                                         Response$IncompleteDetails
                                         Response$IncompleteDetails$Reason
+                                        Response$PromptCacheDiagnostics$CacheMiss
+                                        Response$PromptCacheDiagnostics$CacheMiss$Reason
                                         ResponseCompletedEvent
                                         ResponseCreatedEvent
                                         ResponseErrorEvent
@@ -1262,6 +1264,28 @@
     (is (= "pmpt_weather" (get-in m [:prompt :id])))
     (is (= "2" (get-in m [:prompt :version])))
     (is (= "24h" (:prompt-cache-retention m)))))
+
+(deftest maps-response-prompt-cache-diagnostics
+  (let [cache-miss (-> (Response$PromptCacheDiagnostics$CacheMiss/builder)
+                       (.cacheMissedTokens 120)
+                       (.reason Response$PromptCacheDiagnostics$CacheMiss$Reason/MODEL_CHANGED)
+                       (.comparisonReusableTokens 80)
+                       (.build))
+        cache-miss-response (-> (response [])
+                                .toBuilder
+                                (.promptCacheDiagnostics cache-miss)
+                                (.build))
+        cache-hit-response (-> (response [])
+                               .toBuilder
+                               (.promptCacheDiagnosticsCacheHit)
+                               (.build))]
+    (is (= {:type :cache-miss
+            :cache-missed-tokens 120
+            :reason :model-changed
+            :comparison-reusable-tokens 80}
+           (:prompt-cache-diagnostics (response->map cache-miss-response))))
+    (is (= {:type :cache-hit}
+           (:prompt-cache-diagnostics (response->map cache-hit-response))))))
 
 (deftest maps-agent-output-items-losslessly
   (let [web (ResponseOutputItem/ofWebSearchCall

@@ -164,6 +164,8 @@
                                          FunctionTool$Parameters$Builder
                                          Response
                                          Response$IncompleteDetails
+                                         Response$PromptCacheDiagnostics
+                                         Response$PromptCacheDiagnostics$CacheMiss
                                          ResponseCreateParams
                                          ResponseCreateParams$Builder
                                          ResponseCreateParams$Input
@@ -1149,6 +1151,22 @@
   (cond-> {}
     (.isPresent (.reason d)) (assoc :reason (impl/->keyword (.asString ^com.openai.models.responses.Response$IncompleteDetails$Reason (.get (.reason d)))))))
 
+(defn- prompt-cache-diagnostics->map [^Response$PromptCacheDiagnostics diagnostics]
+  (cond
+    (.isCacheMiss diagnostics)
+    (let [^Response$PromptCacheDiagnostics$CacheMiss cache-miss (.asCacheMiss diagnostics)
+          comparison-reusable-tokens (.comparisonReusableTokens cache-miss)]
+      (cond-> {:type :cache-miss
+               :cache-missed-tokens (.cacheMissedTokens cache-miss)
+               :reason (impl/->keyword (.asString (.reason cache-miss)))}
+        (.isPresent comparison-reusable-tokens)
+        (assoc :comparison-reusable-tokens (.get comparison-reusable-tokens))))
+
+    (.isCacheHit diagnostics) {:type :cache-hit}
+    (.isComparisonResponseNotFound diagnostics) {:type :comparison-response-not-found}
+    (.isUnavailable diagnostics) {:type :unavailable}
+    :else {:type :unknown}))
+
 (defn- response->map
   ([^Response r] (response->map r {}))
   ([^Response r opts]
@@ -1165,6 +1183,9 @@
       (.isPresent (.incompleteDetails r)) (assoc :incomplete-details (incomplete-details->map (.get (.incompleteDetails r))))
       (.isPresent (.previousResponseId r)) (assoc :previous-response-id (.get (.previousResponseId r)))
       (.isPresent (.prompt r)) (assoc :prompt (impl/sdk-object->clj (.get (.prompt r))))
+      (.isPresent (.promptCacheDiagnostics r))
+      (assoc :prompt-cache-diagnostics
+             (prompt-cache-diagnostics->map (.get (.promptCacheDiagnostics r))))
       (.isPresent (.promptCacheRetention r))
       (assoc :prompt-cache-retention
              (.asString ^com.openai.models.responses.Response$PromptCacheRetention

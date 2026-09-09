@@ -12,6 +12,8 @@
                                              BetaEasyInputMessage$Role
                                              BetaEasyInputMessage$Phase
                                              BetaResponse
+                                             BetaResponse$PromptCacheDiagnostics
+                                             BetaResponse$PromptCacheDiagnostics$CacheMiss
                                              BetaResponseIncludable
                                              BetaResponseInputContent
                                              BetaResponseInputItem
@@ -761,6 +763,24 @@
     (update error :misalignment impl/misalignment->map)
     error))
 
+(defn- prompt-cache-diagnostics->map
+  [^BetaResponse$PromptCacheDiagnostics diagnostics]
+  (cond
+    (.isCacheMiss diagnostics)
+    (let [^BetaResponse$PromptCacheDiagnostics$CacheMiss cache-miss
+          (.asCacheMiss diagnostics)
+          comparison-reusable-tokens (.comparisonReusableTokens cache-miss)]
+      (cond-> {:type :cache-miss
+               :cache-missed-tokens (.cacheMissedTokens cache-miss)
+               :reason (impl/->keyword (.asString (.reason cache-miss)))}
+        (.isPresent comparison-reusable-tokens)
+        (assoc :comparison-reusable-tokens (.get comparison-reusable-tokens))))
+
+    (.isCacheHit diagnostics) {:type :cache-hit}
+    (.isComparisonResponseNotFound diagnostics) {:type :comparison-response-not-found}
+    (.isUnavailable diagnostics) {:type :unavailable}
+    :else {:type :unknown}))
+
 (defn- beta-response-data->map ^clojure.lang.IPersistentMap [m]
   (let [items (mapv normalize-response-item (:output m))]
     (cond-> {:id (:id m)
@@ -777,7 +797,12 @@
       (:prompt-cache-retention m) (assoc :prompt-cache-retention (:prompt-cache-retention m)))))
 
 (defn- beta-response->map ^clojure.lang.IPersistentMap [^BetaResponse response]
-  (beta-response-data->map (normalize-value (impl/sdk-object->clj response))))
+  (let [m (beta-response-data->map (normalize-value (impl/sdk-object->clj response)))
+        diagnostics (.promptCacheDiagnostics response)]
+    (cond-> m
+      (.isPresent diagnostics)
+      (assoc :prompt-cache-diagnostics
+             (prompt-cache-diagnostics->map (.get diagnostics))))))
 
 (defn- beta-compacted-response->map ^clojure.lang.IPersistentMap
   [^BetaCompactedResponse response]
