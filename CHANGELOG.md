@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `com.openai/openai-java` and the optional Bedrock transport to 4.60.0.
+
+### Added
+
+- Add `:comparison-response-id` request support and
+  `:prompt-cache-diagnostics` response mapping to Responses and beta Responses.
+- Add `:expires-in-seconds` request support and `:expires-at` response mapping
+  for project service-account API keys.
+
 ## [0.25.0] - 2026-09-04
 
 ### Changed
