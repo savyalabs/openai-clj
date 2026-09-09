@@ -1492,7 +1492,6 @@
            (-> (ResponseFunctionCallArgumentsDoneEvent/builder)
                (.arguments "{\"location\":\"Denver\"}")
                (.itemId "fc_1")
-               (.name "get_weather")
                (.outputIndex 1)
                (.sequenceNumber 4)
                (.build)))))))
