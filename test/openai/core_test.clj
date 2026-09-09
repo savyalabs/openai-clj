@@ -34,6 +34,8 @@
                                         ResponseIncludable
                                         Response$IncompleteDetails
                                         Response$IncompleteDetails$Reason
+                                        Response$PromptCacheDiagnostics$CacheMiss
+                                        Response$PromptCacheDiagnostics$CacheMiss$Reason
                                         ResponseCompletedEvent
                                         ResponseCreatedEvent
                                         ResponseErrorEvent
@@ -359,7 +361,9 @@
                              :message.output-text.logprobs]
                    :truncation :auto
                    :prompt-cache-key "cache-key"
-                   :prompt-cache-options {:mode :standard :ttl :24h}
+                   :prompt-cache-options {:mode :standard
+                                          :ttl :24h
+                                          :comparison-response-id "resp_123"}
                    :safety-identifier "safe-user"
                    :service-tier :priority
                    :previous-response-id "resp_123"
@@ -379,6 +383,7 @@
     (is (= "cache-key" (opt (.promptCacheKey p))))
     (is (= "standard" (-> p .promptCacheOptions opt .mode opt .asString)))
     (is (= "24h" (-> p .promptCacheOptions opt .ttl opt .asString)))
+    (is (= "resp_123" (-> p .promptCacheOptions opt .comparisonResponseId opt)))
     (is (= "safe-user" (opt (.safetyIdentifier p))))
     (is (= "priority" (.asString (opt (.serviceTier p)))))
     (is (= "resp_123" (opt (.previousResponseId p))))
@@ -1260,6 +1265,28 @@
     (is (= "2" (get-in m [:prompt :version])))
     (is (= "24h" (:prompt-cache-retention m)))))
 
+(deftest maps-response-prompt-cache-diagnostics
+  (let [cache-miss (-> (Response$PromptCacheDiagnostics$CacheMiss/builder)
+                       (.cacheMissedTokens 120)
+                       (.reason Response$PromptCacheDiagnostics$CacheMiss$Reason/MODEL_CHANGED)
+                       (.comparisonReusableTokens 80)
+                       (.build))
+        cache-miss-response (-> (response [])
+                                .toBuilder
+                                (.promptCacheDiagnostics cache-miss)
+                                (.build))
+        cache-hit-response (-> (response [])
+                               .toBuilder
+                               (.promptCacheDiagnosticsCacheHit)
+                               (.build))]
+    (is (= {:type :cache-miss
+            :cache-missed-tokens 120
+            :reason :model-changed
+            :comparison-reusable-tokens 80}
+           (:prompt-cache-diagnostics (response->map cache-miss-response))))
+    (is (= {:type :cache-hit}
+           (:prompt-cache-diagnostics (response->map cache-hit-response))))))
+
 (deftest maps-agent-output-items-losslessly
   (let [web (ResponseOutputItem/ofWebSearchCall
              (-> (com.openai.models.responses.ResponseFunctionWebSearch/builder)
@@ -1492,7 +1519,6 @@
            (-> (ResponseFunctionCallArgumentsDoneEvent/builder)
                (.arguments "{\"location\":\"Denver\"}")
                (.itemId "fc_1")
-               (.name "get_weather")
                (.outputIndex 1)
                (.sequenceNumber 4)
                (.build)))))))

@@ -83,17 +83,23 @@
 
 (deftest builds-service-account-api-key-create-params
   (let [f (some-> (ns-resolve 'openai.admin.projects '->service-account-api-key-create-params) deref)
-        ^com.openai.models.admin.organization.projects.serviceaccounts.apikeys.ApiKeyCreateParams p (f "proj_1" "svc_1" {:name "deploy" :scopes ["api.responses.write"]})]
+        ^com.openai.models.admin.organization.projects.serviceaccounts.apikeys.ApiKeyCreateParams p
+        (f "proj_1" "svc_1" {:name "deploy"
+                              :scopes ["api.responses.write"]
+                              :expires-in-seconds 3600})]
     (is (= "proj_1" (.projectId p)))
     (is (= "svc_1" (impl/opt-get (.serviceAccountId p))))
+    (is (= 3600 (impl/opt-get (.expiresInSeconds p))))
     (is (= "deploy" (impl/opt-get (.name p))))
     (is (= ["api.responses.write"] (impl/opt-get (.scopes p))))))
 
 (deftest converts-service-account-api-key-create-response
   (let [response (-> (ApiKeyCreateResponse/builder) (.id "key_1") (.createdAt 456)
-                     (.name "deploy") (.value "sk-secret") (.build))
+                     (.name "deploy") (.value "sk-secret") (.expiresAt 4056) (.build))
         f (some-> (ns-resolve 'openai.admin.projects 'service-account-api-key-create-response->map) deref)]
-    (is (= {:id "key_1" :created-at 456 :name "deploy" :value "sk-secret"} (f response)))))
+    (is (= {:id "key_1" :created-at 456 :name "deploy" :value "sk-secret"
+            :expires-at 4056}
+           (f response)))))
 
 (deftest builds-usage-completions-params
   (let [^UsageCompletionsParams p (#'admin/->usage-completions-params
