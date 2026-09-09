@@ -503,7 +503,15 @@
     (.build b)))
 (defn- service-account->map [^com.openai.models.admin.organization.projects.serviceaccounts.ProjectServiceAccount a] {:id (.id a) :created-at (.createdAt a) :name (.name a) :role (impl/->keyword (.role a))})
 (defn- service-account-create->map [^com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountCreateResponse a]
-  (cond-> {:id (.id a) :created-at (.createdAt a) :name (.name a)} (.isPresent (.apiKey a)) (assoc :api-key (let [^com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountCreateResponse$ApiKey k (impl/opt-get (.apiKey a))] {:id (.id k) :created-at (.createdAt k) :name (.name k) :value (.value k)}))))
+  (cond-> {:id (.id a) :created-at (.createdAt a) :name (.name a)}
+    (.isPresent (.apiKey a))
+    (assoc :api-key
+           (let [^com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountCreateResponse$ApiKey k
+                 (impl/opt-get (.apiKey a))]
+             (cond-> {:id (.id k) :created-at (.createdAt k)
+                      :name (.name k) :value (.value k)}
+               (.isPresent (.expiresAt k))
+               (assoc :expires-at (impl/opt-get (.expiresAt k))))))))
 (defn- ->service-account-list-params ^com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountListParams [^String project-id {:keys [after limit]}] (let [b (com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountListParams/builder)] (.projectId b project-id) (when after (.after b ^String after)) (when limit (.limit b (long limit))) (.build b)))
 (defn service-account-create [^OpenAIClient client ^String project-id req] (impl/with-api-errors (let [^com.openai.services.blocking.admin.organization.projects.ServiceAccountService s (.serviceAccounts (projects-service client))] (service-account-create->map (.create s (->service-account-create-params project-id req))))))
 (defn service-account-retrieve [^OpenAIClient client ^String project-id ^String id] (impl/with-api-errors (let [^com.openai.services.blocking.admin.organization.projects.ServiceAccountService s (.serviceAccounts (projects-service client))] (service-account->map (.retrieve s (-> (com.openai.models.admin.organization.projects.serviceaccounts.ServiceAccountRetrieveParams/builder) (.projectId project-id) (.serviceAccountId id) (.build)))))))
