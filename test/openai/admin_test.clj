@@ -180,12 +180,14 @@
               :owner {} :redacted-value "sk-...abc"}
              (f k)))
       (let [k (-> (ProjectApiKey/builder) (.id "key_2") (.createdAt 456)
+                  (.expiresAt 789)
                   (.lastUsedAt ^com.openai.core.JsonField missing)
                   (.name "Deploy") (.owner owner)
                   (.ownerProjectAccess ProjectApiKey$OwnerProjectAccess/ACTIVE)
                   (.redactedValue "sk-...def") (.build))]
         (is (= {:id "key_2" :created-at 456 :name "Deploy" :owner {}
-                :owner-project-access :active :redacted-value "sk-...def"}
+                :expires-at 789 :owner-project-access :active
+                :redacted-value "sk-...def"}
                (f k)))))))
 
 (deftest converts-project-user-role-present-only

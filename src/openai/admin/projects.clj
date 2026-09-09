@@ -51,6 +51,7 @@
   (let [^JsonField owner-project-access (._ownerProjectAccess k)]
     (cond-> {:id (.id k) :created-at (.createdAt k) :name (.name k)
              :owner (api-key-owner->map (.owner k)) :redacted-value (.redactedValue k)}
+      (.isPresent (.expiresAt k)) (assoc :expires-at (impl/opt-get (.expiresAt k)))
       (.isPresent (.lastUsedAt k)) (assoc :last-used-at (impl/opt-get (.lastUsedAt k)))
       (and (not (.isMissing owner-project-access)) (not (.isNull owner-project-access)))
       (assoc :owner-project-access (impl/->keyword (.asString (.ownerProjectAccess k)))))))
