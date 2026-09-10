@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `com.openai/openai-java` and the optional Bedrock transport to 4.62.0.
+
+### Added
+
+- Add the `openai.live` namespace for WebRTC Live session creation, acceptance,
+  hangup, referral, rejection, forking, and recording download.
+- Make the new `live.transport.incoming` webhook event available through the
+  existing `openai.webhooks/unwrap` function.
+
 ## [0.27.0] - 2026-09-09
 
 ### Changed
