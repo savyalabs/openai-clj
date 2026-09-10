@@ -2,7 +2,8 @@
   (:require [clojure.test :refer [deftest is testing]]
             [jsonista.core :as json]
             [openai.live :as live])
-  (:import (com.openai.client OpenAIClient)
+  (:import (java.io ByteArrayInputStream)
+           (com.openai.client OpenAIClient)
            (com.openai.models.live LiveCreateParams
                                    LiveCreateResponse
                                    LiveCreateResponse$Session
@@ -13,6 +14,7 @@
                                              SessionReferParams
                                              SessionRejectParams
                                              SessionForkParams
+                                             SessionDownloadRecordingParams
                                              SessionForkResponse
                                              SessionForkResponse$Session
                                              SessionForkResponse$Transport)
@@ -233,3 +235,30 @@
                  (error-data #(session-fork client "sess_1"
                                             {:transport {}}))))))
       (is false "openai.live/session-fork is not implemented"))))
+
+(deftest downloads-live-session-recording
+  (let [build-params (ns-resolve 'openai.live '->session-download-recording-params)
+        download (ns-resolve 'openai.live 'session-download-recording)]
+    (if (and build-params download)
+      (let [^SessionDownloadRecordingParams params (build-params "sess_1")
+            captured (atom nil)
+            closed? (atom false)
+            response (proxy [com.openai.core.http.HttpResponse] []
+                       (statusCode [] 200)
+                       (headers [] nil)
+                       (body [] (ByteArrayInputStream. (byte-array [1 2 3 4])))
+                       (close [] (reset! closed? true)))
+            sessions (proxy [SessionService] []
+                       (downloadRecording [p] (reset! captured p) response))
+            service (proxy [LiveService] []
+                      (sessions [] sessions))
+            client (proxy [OpenAIClient] []
+                     (live [] service))]
+        (is (= "sess_1" (.get (.sessionId params))))
+        (is (= [1 2 3 4] (vec (download client "sess_1"))))
+        (is (= "sess_1"
+               (-> ^SessionDownloadRecordingParams @captured .sessionId .get)))
+        (is @closed?)
+        (is (= {:openai/error :missing-key :key :session-id}
+               (error-data #(download client nil)))))
+      (is false "openai.live/session-download-recording is not implemented"))))

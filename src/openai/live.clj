@@ -5,6 +5,7 @@
             [openai.impl :as impl])
   (:import (com.openai.client OpenAIClient)
            (com.openai.core JsonValue)
+           (com.openai.core.http HttpResponse)
            (com.openai.models.live LiveCreateParams
                                    LiveCreateResponse
                                    MediaSessionConfig
@@ -22,7 +23,8 @@
                                              SessionRejectParams
                                              SessionForkParams
                                              SessionForkParams$Transport
-                                             SessionForkResponse)
+                                             SessionForkResponse
+                                             SessionDownloadRecordingParams)
            (com.openai.services.blocking LiveService)
            (com.openai.services.blocking.live SessionService)))
 
@@ -202,3 +204,22 @@
           ^SessionService sessions (.sessions live)]
       (fork-response->map
        (.fork sessions (->session-fork-params session-id req))))))
+
+(defn- ->session-download-recording-params ^SessionDownloadRecordingParams
+  [session-id]
+  (when-not session-id (impl/missing-key! :session-id))
+  (-> (SessionDownloadRecordingParams/builder)
+      (.sessionId ^String session-id)
+      (.build)))
+
+(defn session-download-recording
+  "Download a stored Live session recording as a byte array."
+  ^bytes [^OpenAIClient client session-id]
+  (impl/with-api-errors
+    (let [^LiveService live (.live client)
+          ^SessionService sessions (.sessions live)]
+      (with-open [^HttpResponse response
+                  (.downloadRecording
+                   sessions
+                   (->session-download-recording-params session-id))]
+        (.readAllBytes (.body response))))))
