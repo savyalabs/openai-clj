@@ -7,7 +7,8 @@
                                    LiveCreateResponse
                                    LiveCreateResponse$Session
                                    LiveCreateResponse$Transport)
-           (com.openai.models.live.sessions SessionAcceptParams)
+           (com.openai.models.live.sessions SessionAcceptParams
+                                             SessionHangupParams)
            (com.openai.services.blocking LiveService)
            (com.openai.services.blocking.live SessionService)))
 
@@ -110,3 +111,22 @@
           (is (= {:openai/error :missing-key :key :model}
                  (error-data #(session-accept client "sess_1" {}))))))
       (is false "openai.live/session-accept is not implemented"))))
+
+(deftest hangs-up-live-session
+  (let [build-params (ns-resolve 'openai.live '->session-hangup-params)
+        session-hangup (ns-resolve 'openai.live 'session-hangup)]
+    (if (and build-params session-hangup)
+      (let [^SessionHangupParams params (build-params "sess_1")
+            captured (atom nil)
+            sessions (proxy [SessionService] []
+                       (hangup [p] (reset! captured p) nil))
+            service (proxy [LiveService] []
+                      (sessions [] sessions))
+            client (proxy [OpenAIClient] []
+                     (live [] service))]
+        (is (= "sess_1" (.get (.sessionId params))))
+        (is (nil? (session-hangup client "sess_1")))
+        (is (= "sess_1" (-> ^SessionHangupParams @captured .sessionId .get)))
+        (is (= {:openai/error :missing-key :key :session-id}
+               (error-data #(session-hangup client nil)))))
+      (is false "openai.live/session-hangup is not implemented"))))

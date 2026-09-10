@@ -14,7 +14,8 @@
            (com.openai.models.live.sessions SessionAcceptParams
                                              SessionAcceptParams$Session
                                              SessionAcceptParams$Session$Builder
-                                             SessionAcceptParams$Session$Model)
+                                             SessionAcceptParams$Session$Model
+                                             SessionHangupParams)
            (com.openai.services.blocking LiveService)
            (com.openai.services.blocking.live SessionService)))
 
@@ -108,4 +109,19 @@
     (let [^LiveService live (.live client)
           ^SessionService sessions (.sessions live)]
       (.accept sessions (->session-accept-params session-id session))))
+  nil)
+
+(defn- ->session-hangup-params ^SessionHangupParams [session-id]
+  (when-not session-id (impl/missing-key! :session-id))
+  (-> (SessionHangupParams/builder)
+      (.sessionId ^String session-id)
+      (.build)))
+
+(defn session-hangup
+  "Hang up a Live session."
+  [^OpenAIClient client session-id]
+  (impl/with-api-errors
+    (let [^LiveService live (.live client)
+          ^SessionService sessions (.sessions live)]
+      (.hangup sessions (->session-hangup-params session-id))))
   nil)
