@@ -28,7 +28,7 @@ Leiningen:
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.61.0](https://github.com/openai/openai-java/releases/tag/v4.61.0).
+Tracks [`com.openai/openai-java` 4.62.0](https://github.com/openai/openai-java/releases/tag/v4.62.0).
 
 ## Providers
 
@@ -237,6 +237,27 @@ The namespace also exposes client-secret creation, legacy session and
 transcription-session creation, translation client secrets and WebSockets, and
 SIP `accept-call`, `hangup-call`, `refer-call`, and `reject-call` operations.
 
+## Live API
+
+`openai.live` wraps the WebRTC-based Live session service. `live-create` starts
+a session from a model configuration and browser SDP offer. Session lifecycle
+operations are `session-accept`, `session-hangup`, `session-refer`,
+`session-reject`, `session-fork`, and `session-download-recording`.
+
+```clojure
+(require '[openai.live :as live])
+
+(live/live-create client
+                  {:session {:model "gpt-live-1"
+                             :instructions "Be concise."}
+                   :transport {:sdp browser-sdp-offer}})
+;; => {:session {:id "live_..."}
+;;     :transport {:sdp "..."}}
+```
+
+The SDK's Live `forks` and `sideband` services expose no operations in 4.62.0,
+so this namespace intentionally adds no wrappers for them.
+
 ## Chat Completions
 
 Use the Responses API for new OpenAI work. Chat Completions supports
@@ -312,6 +333,7 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
          '[openai.chatkit :as chatkit]
          '[openai.beta.responses :as beta-responses]
          '[openai.realtime :as realtime]
+         '[openai.live :as live]
          '[openai.webhooks :as webhooks]
          '[openai.admin :as admin]
          '[openai.admin.projects :as admin-projects])
@@ -336,6 +358,8 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
                        :size "1280x720" :seconds "8"})
 (chatkit/create-session client {:workflow {:id "wf_123"} :user "user_42"})
 (beta-responses/create-response client {:model "gpt-5" :input "Hello"})
+(live/live-create client {:session {:model "gpt-live-1"}
+                          :transport {:sdp browser-sdp-offer}})
 (webhooks/unwrap webhook-client raw-body request-headers)
 (admin/project-list admin-client {:limit 20})
 (admin-projects/service-account-list admin-client "proj_...")
@@ -344,7 +368,8 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
 `openai.core` also contains Responses, Chat Completions, embeddings, files,
 batches, models, and stored Chat Completions. `openai.realtime` contains
 WebSocket, session, client-secret, transcription, translation, and SIP call
-helpers. `openai.content-provenance-checks` contains Content Provenance Checks.
+helpers. `openai.live` contains WebRTC session creation and lifecycle helpers.
+`openai.content-provenance-checks` contains Content Provenance Checks.
 `openai.graders` maps to the stable grader-model service. Model names are passed
 through as strings, including `"gpt-6-astra"`. The service exposes
 no operations in SDK 4.61.0.
