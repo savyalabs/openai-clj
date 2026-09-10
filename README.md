@@ -372,7 +372,7 @@ helpers. `openai.live` contains WebRTC session creation and lifecycle helpers.
 `openai.content-provenance-checks` contains Content Provenance Checks.
 `openai.graders` maps to the stable grader-model service. Model names are passed
 through as strings, including `"gpt-6-astra"`. The service exposes
-no operations in SDK 4.61.0.
+no operations in SDK 4.62.0.
 
 List functions remain eager by default. Additive lazy siblings cover models,
 files, batches, stored Chat Completions, response input items, vector stores and
