@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-09-10
+
 ### Changed
 
 - Bump `com.openai/openai-java` and the optional Bedrock transport to 4.62.0.
