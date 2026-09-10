@@ -8,7 +8,8 @@
                                    LiveCreateResponse$Session
                                    LiveCreateResponse$Transport)
            (com.openai.models.live.sessions SessionAcceptParams
-                                             SessionHangupParams)
+                                             SessionHangupParams
+                                             SessionReferParams)
            (com.openai.services.blocking LiveService)
            (com.openai.services.blocking.live SessionService)))
 
@@ -130,3 +131,26 @@
         (is (= {:openai/error :missing-key :key :session-id}
                (error-data #(session-hangup client nil)))))
       (is false "openai.live/session-hangup is not implemented"))))
+
+(deftest refers-live-session
+  (let [build-params (ns-resolve 'openai.live '->session-refer-params)
+        session-refer (ns-resolve 'openai.live 'session-refer)]
+    (if (and build-params session-refer)
+      (let [^SessionReferParams params
+            (build-params "sess_1" "tel:+15551234567")
+            captured (atom nil)
+            sessions (proxy [SessionService] []
+                       (refer [p] (reset! captured p) nil))
+            service (proxy [LiveService] []
+                      (sessions [] sessions))
+            client (proxy [OpenAIClient] []
+                     (live [] service))]
+        (is (= "sess_1" (.get (.sessionId params))))
+        (is (= "tel:+15551234567" (.targetUri params)))
+        (is (nil? (session-refer client "sess_1" "tel:+15551234567")))
+        (is (= "tel:+15551234567" (.targetUri ^SessionReferParams @captured)))
+        (is (= {:openai/error :missing-key :key :session-id}
+               (error-data #(session-refer client nil "tel:+15551234567"))))
+        (is (= {:openai/error :missing-key :key :target-uri}
+               (error-data #(session-refer client "sess_1" nil)))))
+      (is false "openai.live/session-refer is not implemented"))))

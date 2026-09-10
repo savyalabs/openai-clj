@@ -15,7 +15,8 @@
                                              SessionAcceptParams$Session
                                              SessionAcceptParams$Session$Builder
                                              SessionAcceptParams$Session$Model
-                                             SessionHangupParams)
+                                             SessionHangupParams
+                                             SessionReferParams)
            (com.openai.services.blocking LiveService)
            (com.openai.services.blocking.live SessionService)))
 
@@ -124,4 +125,21 @@
     (let [^LiveService live (.live client)
           ^SessionService sessions (.sessions live)]
       (.hangup sessions (->session-hangup-params session-id))))
+  nil)
+
+(defn- ->session-refer-params ^SessionReferParams [session-id target-uri]
+  (when-not session-id (impl/missing-key! :session-id))
+  (when-not target-uri (impl/missing-key! :target-uri))
+  (-> (SessionReferParams/builder)
+      (.sessionId ^String session-id)
+      (.targetUri ^String target-uri)
+      (.build)))
+
+(defn session-refer
+  "Refer a Live session to another SIP URI."
+  [^OpenAIClient client session-id target-uri]
+  (impl/with-api-errors
+    (let [^LiveService live (.live client)
+          ^SessionService sessions (.sessions live)]
+      (.refer sessions (->session-refer-params session-id target-uri))))
   nil)
