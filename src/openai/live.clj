@@ -9,7 +9,9 @@
                                    LiveCreateResponse
                                    MediaSessionConfig
                                    MediaSessionConfig$Builder
-                                   MediaSessionConfig$Model)
+                                   MediaSessionConfig$Model
+                                   MediaSessionForkConfig
+                                   MediaSessionForkConfig$Builder)
            (com.openai.models.live LiveCreateParams$Transport)
            (com.openai.models.live.sessions SessionAcceptParams
                                              SessionAcceptParams$Session
@@ -17,7 +19,10 @@
                                              SessionAcceptParams$Session$Model
                                              SessionHangupParams
                                              SessionReferParams
-                                             SessionRejectParams)
+                                             SessionRejectParams
+                                             SessionForkParams
+                                             SessionForkParams$Transport
+                                             SessionForkResponse)
            (com.openai.services.blocking LiveService)
            (com.openai.services.blocking.live SessionService)))
 
@@ -161,3 +166,39 @@
           ^SessionService sessions (.sessions live)]
       (.reject sessions (->session-reject-params session-id status-code))))
   nil)
+
+(defn- ->fork-session ^MediaSessionForkConfig [session]
+  (let [^MediaSessionForkConfig$Builder b (MediaSessionForkConfig/builder)]
+    (doseq [[k v] session]
+      (.putAdditionalProperty b (wire-name k) (json-value v)))
+    (.build b)))
+
+(defn- ->fork-transport ^SessionForkParams$Transport [transport]
+  (when-not transport (impl/missing-key! :transport))
+  (let [{:keys [sdp]} transport]
+    (when-not sdp (impl/missing-key! :sdp))
+    (-> (SessionForkParams$Transport/builder)
+        (.sdp ^String sdp)
+        (.build))))
+
+(defn- ->session-fork-params ^SessionForkParams
+  [session-id {:keys [transport session]}]
+  (when-not session-id (impl/missing-key! :session-id))
+  (let [b (-> (SessionForkParams/builder)
+              (.sessionId ^String session-id)
+              (.transport (->fork-transport transport)))]
+    (when session (.session b (->fork-session session)))
+    (.build b)))
+
+(defn- fork-response->map [^SessionForkResponse response]
+  {:session {:id (-> response .session .id)}
+   :transport {:sdp (-> response .transport .sdp)}})
+
+(defn session-fork
+  "Fork a stored Live session onto a new WebRTC connection."
+  [^OpenAIClient client session-id req]
+  (impl/with-api-errors
+    (let [^LiveService live (.live client)
+          ^SessionService sessions (.sessions live)]
+      (fork-response->map
+       (.fork sessions (->session-fork-params session-id req))))))

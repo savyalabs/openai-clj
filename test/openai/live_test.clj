@@ -6,11 +6,16 @@
            (com.openai.models.live LiveCreateParams
                                    LiveCreateResponse
                                    LiveCreateResponse$Session
-                                   LiveCreateResponse$Transport)
+                                   LiveCreateResponse$Transport
+                                   MediaSessionForkConfig)
            (com.openai.models.live.sessions SessionAcceptParams
                                              SessionHangupParams
                                              SessionReferParams
-                                             SessionRejectParams)
+                                             SessionRejectParams
+                                             SessionForkParams
+                                             SessionForkResponse
+                                             SessionForkResponse$Session
+                                             SessionForkResponse$Transport)
            (com.openai.services.blocking LiveService)
            (com.openai.services.blocking.live SessionService)))
 
@@ -177,3 +182,54 @@
         (is (= {:openai/error :missing-key :key :status-code}
                (error-data #(session-reject client "sess_1" nil)))))
       (is false "openai.live/session-reject is not implemented"))))
+
+(deftest forks-live-session
+  (let [build-params (ns-resolve 'openai.live '->session-fork-params)
+        session-fork (ns-resolve 'openai.live 'session-fork)]
+    (if (and build-params session-fork)
+      (let [request {:transport {:sdp "fork-offer"}
+                     :session {:store true
+                               :client {:data-channel {:type :webrtc}}}}
+            ^SessionForkParams params (build-params "sess_1" request)
+            inherited ^SessionForkParams
+            (build-params "sess_1" {:transport {:sdp "fork-offer"}})
+            response (-> (SessionForkResponse/builder)
+                         (.session (-> (SessionForkResponse$Session/builder)
+                                       (.id "sess_2")
+                                       (.build)))
+                         (.transport (-> (SessionForkResponse$Transport/builder)
+                                         (.sdp "fork-answer")
+                                         (.build)))
+                         (.build))
+            captured (atom nil)
+            sessions (proxy [SessionService] []
+                       (fork [p] (reset! captured p) response))
+            service (proxy [LiveService] []
+                      (sessions [] sessions))
+            client (proxy [OpenAIClient] []
+                     (live [] service))]
+        (testing "request parameters"
+          (is (= "sess_1" (.get (.sessionId params))))
+          (is (= "fork-offer" (-> params .transport .sdp)))
+          (is (= "webrtc" (-> params .transport ._type json-value->clj)))
+          (is (= true (-> ^MediaSessionForkConfig (.get (.session params))
+                          ._additionalProperties (get "store") json-value->clj)))
+          (is (= {:data_channel {:type "webrtc"}}
+                 (-> ^MediaSessionForkConfig (.get (.session params))
+                     ._additionalProperties
+                     (get "client") json-value->clj)))
+          (is (not (.isPresent (.session inherited)))))
+        (testing "service call and response"
+          (is (= {:session {:id "sess_2"}
+                  :transport {:sdp "fork-answer"}}
+                 (session-fork client "sess_1" request)))
+          (is (= "fork-offer" (-> ^SessionForkParams @captured .transport .sdp))))
+        (testing "required fields"
+          (is (= {:openai/error :missing-key :key :session-id}
+                 (error-data #(session-fork client nil request))))
+          (is (= {:openai/error :missing-key :key :transport}
+                 (error-data #(session-fork client "sess_1" {}))))
+          (is (= {:openai/error :missing-key :key :sdp}
+                 (error-data #(session-fork client "sess_1"
+                                            {:transport {}}))))))
+      (is false "openai.live/session-fork is not implemented"))))
