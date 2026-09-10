@@ -11,7 +11,12 @@
                                    MediaSessionConfig$Builder
                                    MediaSessionConfig$Model)
            (com.openai.models.live LiveCreateParams$Transport)
-           (com.openai.services.blocking LiveService)))
+           (com.openai.models.live.sessions SessionAcceptParams
+                                             SessionAcceptParams$Session
+                                             SessionAcceptParams$Session$Builder
+                                             SessionAcceptParams$Session$Model)
+           (com.openai.services.blocking LiveService)
+           (com.openai.services.blocking.live SessionService)))
 
 (set! *warn-on-reflection* true)
 
@@ -76,3 +81,31 @@
   (impl/with-api-errors
     (let [^LiveService service (.live client)]
       (live-response->map (.create service (->live-create-params req))))))
+
+(defn- ->accept-session ^SessionAcceptParams$Session [session]
+  (when-not session (impl/missing-key! :session))
+  (let [{:keys [model]} session]
+    (when-not model (impl/missing-key! :model))
+    (let [^SessionAcceptParams$Session$Builder b
+          (SessionAcceptParams$Session/builder)]
+      (.model b (SessionAcceptParams$Session$Model/of
+                 (if (keyword? model) (name model) model)))
+      (doseq [[k v] (dissoc session :model)]
+        (.putAdditionalProperty b (wire-name k) (json-value v)))
+      (.build b))))
+
+(defn- ->session-accept-params ^SessionAcceptParams [session-id session]
+  (when-not session-id (impl/missing-key! :session-id))
+  (-> (SessionAcceptParams/builder)
+      (.sessionId ^String session-id)
+      (.session (->accept-session session))
+      (.build)))
+
+(defn session-accept
+  "Accept an incoming SIP Live session with startup configuration."
+  [^OpenAIClient client session-id session]
+  (impl/with-api-errors
+    (let [^LiveService live (.live client)
+          ^SessionService sessions (.sessions live)]
+      (.accept sessions (->session-accept-params session-id session))))
+  nil)

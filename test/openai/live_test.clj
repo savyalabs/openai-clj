@@ -7,7 +7,9 @@
                                    LiveCreateResponse
                                    LiveCreateResponse$Session
                                    LiveCreateResponse$Transport)
-           (com.openai.services.blocking LiveService)))
+           (com.openai.models.live.sessions SessionAcceptParams)
+           (com.openai.services.blocking LiveService)
+           (com.openai.services.blocking.live SessionService)))
 
 (set! *warn-on-reflection* true)
 
@@ -71,3 +73,40 @@
                  (live-create client request)))
           (is (= "offer" (-> ^LiveCreateParams @captured .transport .sdp)))))
       (is false "openai.live/live-create is not implemented"))))
+
+(deftest accepts-live-session
+  (let [build-params (ns-resolve 'openai.live '->session-accept-params)
+        session-accept (ns-resolve 'openai.live 'session-accept)]
+    (if (and build-params session-accept)
+      (let [session {:model :gpt-live-1
+                     :instructions "Answer the call."
+                     :audio {:output {:voice "alloy"}}}
+            ^SessionAcceptParams params (build-params "sess_1" session)
+            captured (atom nil)
+            sessions (proxy [SessionService] []
+                       (accept [p] (reset! captured p) nil))
+            service (proxy [LiveService] []
+                      (sessions [] sessions))
+            client (proxy [OpenAIClient] []
+                     (live [] service))]
+        (testing "request parameters"
+          (is (= "sess_1" (.get (.sessionId params))))
+          (is (= "gpt-live-1" (-> params .session .model .asString)))
+          (is (= "live" (-> params .session ._type json-value->clj)))
+          (is (= "Answer the call."
+                 (-> params .session ._additionalProperties
+                     (get "instructions") json-value->clj)))
+          (is (= {:output {:voice "alloy"}}
+                 (-> params .session ._additionalProperties
+                     (get "audio") json-value->clj))))
+        (testing "service call"
+          (is (nil? (session-accept client "sess_1" session)))
+          (is (= "sess_1" (-> ^SessionAcceptParams @captured .sessionId .get))))
+        (testing "required fields"
+          (is (= {:openai/error :missing-key :key :session-id}
+                 (error-data #(session-accept client nil session))))
+          (is (= {:openai/error :missing-key :key :session}
+                 (error-data #(session-accept client "sess_1" nil))))
+          (is (= {:openai/error :missing-key :key :model}
+                 (error-data #(session-accept client "sess_1" {}))))))
+      (is false "openai.live/session-accept is not implemented"))))
