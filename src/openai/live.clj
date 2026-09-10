@@ -16,7 +16,8 @@
                                              SessionAcceptParams$Session$Builder
                                              SessionAcceptParams$Session$Model
                                              SessionHangupParams
-                                             SessionReferParams)
+                                             SessionReferParams
+                                             SessionRejectParams)
            (com.openai.services.blocking LiveService)
            (com.openai.services.blocking.live SessionService)))
 
@@ -142,4 +143,21 @@
     (let [^LiveService live (.live client)
           ^SessionService sessions (.sessions live)]
       (.refer sessions (->session-refer-params session-id target-uri))))
+  nil)
+
+(defn- ->session-reject-params ^SessionRejectParams [session-id status-code]
+  (when-not session-id (impl/missing-key! :session-id))
+  (when-not status-code (impl/missing-key! :status-code))
+  (-> (SessionRejectParams/builder)
+      (.sessionId ^String session-id)
+      (.statusCode (long status-code))
+      (.build)))
+
+(defn session-reject
+  "Reject an incoming Live session with a SIP status code."
+  [^OpenAIClient client session-id status-code]
+  (impl/with-api-errors
+    (let [^LiveService live (.live client)
+          ^SessionService sessions (.sessions live)]
+      (.reject sessions (->session-reject-params session-id status-code))))
   nil)

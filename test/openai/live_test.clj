@@ -9,7 +9,8 @@
                                    LiveCreateResponse$Transport)
            (com.openai.models.live.sessions SessionAcceptParams
                                              SessionHangupParams
-                                             SessionReferParams)
+                                             SessionReferParams
+                                             SessionRejectParams)
            (com.openai.services.blocking LiveService)
            (com.openai.services.blocking.live SessionService)))
 
@@ -154,3 +155,25 @@
         (is (= {:openai/error :missing-key :key :target-uri}
                (error-data #(session-refer client "sess_1" nil)))))
       (is false "openai.live/session-refer is not implemented"))))
+
+(deftest rejects-live-session
+  (let [build-params (ns-resolve 'openai.live '->session-reject-params)
+        session-reject (ns-resolve 'openai.live 'session-reject)]
+    (if (and build-params session-reject)
+      (let [^SessionRejectParams params (build-params "sess_1" 486)
+            captured (atom nil)
+            sessions (proxy [SessionService] []
+                       (reject [p] (reset! captured p) nil))
+            service (proxy [LiveService] []
+                      (sessions [] sessions))
+            client (proxy [OpenAIClient] []
+                     (live [] service))]
+        (is (= "sess_1" (.get (.sessionId params))))
+        (is (= 486 (.statusCode params)))
+        (is (nil? (session-reject client "sess_1" 486)))
+        (is (= 486 (.statusCode ^SessionRejectParams @captured)))
+        (is (= {:openai/error :missing-key :key :session-id}
+               (error-data #(session-reject client nil 486))))
+        (is (= {:openai/error :missing-key :key :status-code}
+               (error-data #(session-reject client "sess_1" nil)))))
+      (is false "openai.live/session-reject is not implemented"))))
