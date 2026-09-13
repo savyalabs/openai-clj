@@ -2,6 +2,47 @@
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-09-13
+
+### Changed
+
+- Bump `com.openai/openai-java` and the optional Bedrock transport to 4.63.1
+  (4.63.1 itself is a test-timeout fix only; the new surface below landed in
+  4.63.0).
+
+### Added
+
+- Add the beta Agents API: a full Clojure wrap of openai-java's new
+  multi-agent orchestration platform.
+  - `openai.beta.agents`: Agent create/retrieve/update/delete/list.
+  - `openai.beta.agents.sessions`: session create (blocking and streaming),
+    retrieve, update, delete, list.
+  - `openai.beta.agents.sessions.turns` / `.items`: session turn and item
+    retrieval/listing.
+  - `openai.beta.agents.sessions.events` / `.artifacts`: session event
+    creation/streaming, and artifact retrieve/list/delete/content-download.
+  - `openai.beta.agents.sessions.subagents` (and nested `.items`, `.turns`,
+    `.turns.items`): subagents spawned within a session and their own
+    turns/items.
+  - `openai.beta.agents.environments` (and nested `.files`, `.templates`):
+    sandboxed execution environments, hosted files, and reusable templates.
+  - `openai.beta.agents.vaults` (and nested `.credentials`): credential
+    vaults for agent tool authentication (static bearer and MCP OAuth).
+  - The SDK's `forks`/`sideband` agent-session services expose no operations
+    in 4.63.1, matching the existing Live API convention of documenting a
+    zero-operation service rather than wrapping nothing.
+
+### Audit
+
+- Root-caused a shared bug across several pagination test fixtures: every
+  `*ListPage.hasNextPage()` in this SDK release checks only whether the
+  current page's items are non-empty, not the `hasMore` field. A fixture
+  that terminates via `hasMore=false` on an otherwise non-empty page loops
+  forever under `impl/all-pages`'s `AutoPager`. Fixed at the fixture level
+  (terminate with a genuinely empty page) rather than by teaching the shared
+  `impl/all-pages` helper about `hasMore`, since a hasMore-aware rewrite of
+  that helper regressed an already-correct sibling test.
+
 ## [0.28.0] - 2026-09-10
 
 ### Changed
