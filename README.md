@@ -28,7 +28,7 @@ Leiningen:
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.62.0](https://github.com/openai/openai-java/releases/tag/v4.62.0).
+Tracks [`com.openai/openai-java` 4.63.1](https://github.com/openai/openai-java/releases/tag/v4.63.1).
 
 ## Providers
 
@@ -258,6 +258,25 @@ operations are `session-accept`, `session-hangup`, `session-refer`,
 The SDK's Live `forks` and `sideband` services expose no operations in 4.62.0,
 so this namespace intentionally adds no wrappers for them.
 
+## Beta Agents API
+
+Subagent wrappers cover retrieval and paginated lists for subagents, their
+items, their turns, and turn items:
+
+```clojure
+(require '[openai.beta.agents.sessions.subagents :as subagents]
+         '[openai.beta.agents.sessions.subagents.items :as subagent-items]
+         '[openai.beta.agents.sessions.subagents.turns :as subagent-turns]
+         '[openai.beta.agents.sessions.subagents.turns.items :as turn-items])
+
+(subagents/subagent-retrieve client "sess_..." "subagent_...")
+(subagent-items/item-list client "sess_..." "subagent_..." {:limit 20})
+(subagent-turns/turn-list client "sess_..." "subagent_..." {:order :desc})
+(turn-items/item-list client "sess_..." "subagent_..." "turn_..." {})
+```
+
+This surface is beta and can change with the upstream SDK.
+
 ## Chat Completions
 
 Use the Responses API for new OpenAI work. Chat Completions supports
@@ -380,7 +399,7 @@ their files/batches, and ChatKit threads/items. Their option maps accept
 `:max-items` and `:max-pages` to bound realization.
 
 The library wraps each non-deprecated operation that the Java SDK exposes. This
-includes beta ChatKit and beta Responses. The Assistants API (assistants/threads/runs) is not
+includes beta Agents, ChatKit, and Responses. The Assistants API (assistants/threads/runs) is not
 wrapped because the SDK marks it as deprecated in favor of the Responses API.
 Async clients, raw-response accessors, and per-call `RequestOptions` are
 transport and accessor variants, not endpoints. The library does not duplicate them.
