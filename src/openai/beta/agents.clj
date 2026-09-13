@@ -54,8 +54,9 @@
   [^clojure.lang.IPersistentMap req]
   (let [{:keys [model]} req]
     (when-not model (impl/missing-key! :model))
-    (let [^AgentCreateParams$Builder b (AgentCreateParams/builder)]
-      (.model b ^String (if (keyword? model) (name model) model))
+    (let [^String model-name (if (keyword? model) (name model) model)
+          ^AgentCreateParams$Builder b (AgentCreateParams/builder)]
+      (.model b model-name)
       (put-agent-create-properties! b (dissoc req :model))
       (.build b))))
 
