@@ -2,10 +2,17 @@
   "Clojure wrapper for the beta Agents API vault credential operations."
   (:require [openai.impl :as impl])
   (:import (com.openai.client OpenAIClient)
-           (com.openai.core JsonValue)
            (com.openai.models.beta.agents.vaults.credentials Credential
                                                                 CredentialAuthCreateParam
+                                                                CredentialAuthCreateParam$McpOAuth
+                                                                CredentialAuthCreateParam$McpOAuth$Builder
+                                                                CredentialAuthCreateParam$StaticBearer
+                                                                CredentialAuthCreateParam$StaticBearer$Builder
                                                                 CredentialAuthRotateParam
+                                                                CredentialAuthRotateParam$McpOAuth
+                                                                CredentialAuthRotateParam$McpOAuth$Builder
+                                                                CredentialAuthRotateParam$StaticBearer
+                                                                CredentialAuthRotateParam$StaticBearer$Builder
                                                                 CredentialCreateParams
                                                                 CredentialCreateParams$Builder
                                                                 CredentialDeleteParams
@@ -18,8 +25,7 @@
            (com.openai.services.blocking BetaService)
            (com.openai.services.blocking.beta AgentService)
            (com.openai.services.blocking.beta.agents VaultService)
-           (com.openai.services.blocking.beta.agents.vaults CredentialService)
-           (java.lang.reflect Constructor)))
+           (com.openai.services.blocking.beta.agents.vaults CredentialService)))
 
 (set! *warn-on-reflection* true)
 
@@ -29,44 +35,11 @@
         ^VaultService vaults (.vaults agents)]
     (.credentials vaults)))
 
-(defn- auth->json-value ^JsonValue [auth]
-  (JsonValue/from
-   (letfn [(json-compatible [x]
-             (cond
-               (map? x) (into {}
-                              (map (fn [[k v]]
-                                     [(impl/enum-name k) (json-compatible v)]))
-                              x)
-               (sequential? x) (mapv json-compatible x)
-               (keyword? x) (impl/enum-name x)
-               :else x))]
-     (json-compatible auth))))
-
-(defn- raw-union-constructor ^Constructor [^Class union-class]
-  (let [^Constructor constructor
-        (first (filter #(= 3 (alength (.getParameterTypes ^Constructor %)))
-                       (.getDeclaredConstructors union-class)))]
-    (.setAccessible constructor true)
-    constructor))
-
-(def ^:private ^Constructor credential-auth-create-constructor
-  (raw-union-constructor CredentialAuthCreateParam))
-
-(def ^:private ^Constructor credential-auth-rotate-constructor
-  (raw-union-constructor CredentialAuthRotateParam))
-
-(defn- raw-auth-param [^Constructor constructor auth]
-  ;; Known auth variants expose their internal `isValid` property when serialized
-  ;; by a general-purpose Jackson mapper. The union's raw branch serializes only
-  ;; API fields and also keeps the wrapper forward-compatible with new auth shapes.
-  (.newInstance constructor
-                (object-array [nil nil (auth->json-value auth)])))
-
 (defn- ->credential-auth-create-param ^CredentialAuthCreateParam [auth]
-  (raw-auth-param credential-auth-create-constructor auth))
+  (impl/sdk-input-object auth CredentialAuthCreateParam))
 
 (defn- ->credential-auth-rotate-param ^CredentialAuthRotateParam [auth]
-  (raw-auth-param credential-auth-rotate-constructor auth))
+  (impl/sdk-input-object auth CredentialAuthRotateParam))
 
 (defn- ->credential-create-params ^CredentialCreateParams
   [^String vault-id {:keys [name auth]}]

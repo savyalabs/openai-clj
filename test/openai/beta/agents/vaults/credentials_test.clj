@@ -1,6 +1,6 @@
 (ns openai.beta.agents.vaults.credentials-test
   (:require [clojure.test :refer [deftest is testing]]
-            [jsonista.core :as json])
+            [openai.impl :as impl])
   (:import (com.openai.client OpenAIClient)
            (com.openai.core JsonValue)
            (com.openai.models.beta.agents.vaults.credentials Credential
@@ -23,10 +23,8 @@
 
 (set! *warn-on-reflection* true)
 
-(def mapper (json/object-mapper {:decode-key-fn true}))
-
 (defn- json-value->clj [x]
-  (json/read-value (json/write-value-as-string x) mapper))
+  (impl/sdk-object->clj x))
 
 (defn- error-data [f]
   (try
@@ -101,15 +99,15 @@
             (is (= "Test credential" (.name params)))
             (is (= "static_bearer" (:type auth)))
             (is (= "test-secret-value" (:token auth)))
-            (is (= "https://example.test/mcp" (:mcp_server_url auth)))))
+            (is (= "https://example.test/mcp" (:mcp-server-url auth)))))
         (testing "MCP OAuth request remains schema-forward-compatible"
           (let [^CredentialCreateParams params (second @captured)
                 auth (json-value->clj (.auth params))]
             (is (= "mcp_oauth" (:type auth)))
-            (is (= "test-access-token" (:access_token auth)))
-            (is (= "test-refresh-token" (get-in auth [:refresh :refresh_token])))
+            (is (= "test-access-token" (:access-token auth)))
+            (is (= "test-refresh-token" (get-in auth [:refresh :refresh-token])))
             (is (= "client_secret_post"
-                   (get-in auth [:refresh :token_endpoint_auth :type])))))
+                   (get-in auth [:refresh :token-endpoint-auth :type])))))
         (testing "response"
           (is (= {:id "cred_1"
                   :auth {:type :static-bearer
