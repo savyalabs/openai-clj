@@ -275,6 +275,13 @@ items, their turns, and turn items:
 (turn-items/item-list client "sess_..." "subagent_..." "turn_..." {})
 ```
 
+`openai.beta.agents.environments/retrieve` retrieves a hosted environment.
+`openai.beta.agents.environments.files` provides `create` and `list` for
+environment files. `openai.beta.agents.environments.templates` provides
+`create`, `retrieve`, `update`, `list`, and `delete` for environment templates.
+Requests use kebab-case maps; responses are Clojure maps, and list operations
+collect all pages.
+
 This surface is beta and can change with the upstream SDK.
 
 ## Chat Completions
