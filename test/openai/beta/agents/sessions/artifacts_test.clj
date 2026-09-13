@@ -99,6 +99,7 @@
             ^ArtifactListParams params (build-params "sess_1" opts)
             captured (atom nil)
             service-ref (atom nil)
+            calls (atom 0)
             ^java.util.ArrayList artifact-data (java.util.ArrayList.)
             _ (.add artifact-data (artifact "art_1"))
             ^ArtifactListPageResponse$Builder response-builder
@@ -109,6 +110,14 @@
             _ (.lastId response-builder "art_1")
             _ (.object_ response-builder (JsonValue/from "list"))
             response (.build response-builder)
+            ^ArtifactListPageResponse$Builder empty-response-builder
+            (ArtifactListPageResponse/builder)
+            _ (.data empty-response-builder (java.util.ArrayList.))
+            _ (.firstId empty-response-builder (java.util.Optional/empty))
+            _ (.hasMore empty-response-builder false)
+            _ (.lastId empty-response-builder (java.util.Optional/empty))
+            _ (.object_ empty-response-builder (JsonValue/from "list"))
+            empty-response (.build empty-response-builder)
             artifact-service
             (proxy [ArtifactService] []
               (list [p]
@@ -116,7 +125,7 @@
                 (-> (ArtifactListPage/builder)
                     (.service ^ArtifactService @service-ref)
                     (.params ^ArtifactListParams p)
-                    (.response response)
+                    (.response (if (= 1 (swap! calls inc)) response empty-response))
                     (.build))))
             _ (reset! service-ref artifact-service)
             client (client-for artifact-service)]
