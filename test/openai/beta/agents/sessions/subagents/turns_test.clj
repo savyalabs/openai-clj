@@ -99,13 +99,18 @@
             captured-retrieve (atom nil)
             captured-list (atom nil)
             page-holder (atom nil)
+            empty-page-holder (atom nil)
+            calls (atom 0)
             turns (proxy [TurnService] []
                     (retrieve [params]
                       (reset! captured-retrieve params)
                       running)
                     (list [params]
-                      (reset! captured-list params)
-                      @page-holder))
+                      (let [call (swap! calls inc)]
+                        (when (= 1 call) (reset! captured-list params))
+                        (if (= 1 call)
+                          @page-holder
+                          @empty-page-holder))))
             _ (reset! page-holder
                       (-> (TurnListPage/builder)
                           (.service turns)
@@ -118,6 +123,21 @@
                                          (.firstId "turn_1")
                                          (.hasMore false)
                                          (.lastId "turn_2")
+                                         (.object_ (JsonValue/from "list"))
+                                         (.build)))
+                          (.build)))
+            _ (reset! empty-page-holder
+                      (-> (TurnListPage/builder)
+                          (.service turns)
+                          (.params (-> (TurnListParams/builder)
+                                       (.sessionId "sess_1")
+                                       (.subagentId "sub_1")
+                                       (.build)))
+                          (.response (-> (TurnListPageResponse/builder)
+                                         (.data [])
+                                         (.firstId (java.util.Optional/empty))
+                                         (.hasMore false)
+                                         (.lastId (java.util.Optional/empty))
                                          (.object_ (JsonValue/from "list"))
                                          (.build)))
                           (.build)))

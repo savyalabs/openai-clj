@@ -54,14 +54,14 @@
 
 (defn- turn-page
   [^TurnService service ^TurnListParams params turns has-more]
-  (let [first-id (.id ^Turn (first turns))
-        last-id (.id ^Turn (last turns))
+  (let [^Turn first-turn (first turns)
+        ^Turn last-turn (last turns)
         ^TurnListPageResponse$Builder b (TurnListPageResponse/builder)
         response (do
                    (.data b ^java.util.List turns)
-                   (.firstId b first-id)
+                   (.firstId b (if first-turn (.id first-turn) (java.util.Optional/empty)))
                    (.hasMore b (boolean has-more))
-                   (.lastId b last-id)
+                   (.lastId b (if last-turn (.id last-turn) (java.util.Optional/empty)))
                    (.build b))]
     (-> (TurnListPage/builder)
         (.service service)
@@ -138,14 +138,15 @@
     (if list-turns
       (let [captured (atom [])
             service-ref (atom nil)
+            calls (atom 0)
             service (proxy [TurnService] []
                       (list [params]
                         (swap! captured conj params)
-                        (let [^TurnListParams params params
-                              after (impl/opt-get (.after params))]
-                          (if after
-                            (turn-page @service-ref params
-                                       [(turn "turn_2" Turn$Status/COMPLETED)] false)
+                        (let [^TurnListParams params params]
+                          (case (swap! calls inc)
+                            2 (turn-page @service-ref params
+                                         [(turn "turn_2" Turn$Status/COMPLETED)] false)
+                            3 (turn-page @service-ref params [] false)
                             (turn-page @service-ref params
                                        [(turn "turn_1" Turn$Status/IN_PROGRESS)] true)))))
             _ (reset! service-ref service)
@@ -153,9 +154,9 @@
             result (list-turns client "sess_1" {:limit 1 :order :asc})]
         (is (= ["turn_1" "turn_2"] (mapv :id result)))
         (is (= [:in-progress :completed] (mapv :status result)))
-        (is (= [nil "turn_1"]
+        (is (= [nil "turn_1" "turn_2"]
                (mapv #(impl/opt-get (.after ^TurnListParams %)) @captured)))
-        (is (= [1 1]
+        (is (= [1 1 1]
                (mapv #(impl/opt-get (.limit ^TurnListParams %)) @captured))))
       (is false "openai.beta.agents.sessions.turns/list-turns is not implemented"))))
 

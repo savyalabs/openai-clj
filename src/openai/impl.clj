@@ -3,7 +3,7 @@
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
             [jsonista.core :as json])
-  (:import (com.openai.core JsonValue Page)
+  (:import (com.openai.core AutoPager JsonValue Page)
            (com.openai.errors BadRequestException
                               InternalServerException
                               NotFoundException
@@ -231,38 +231,10 @@
                :when (#{:text :output-text} (:type content))]
            (:text content))))
 
-(def ^:private no-explicit-has-more (Object.))
-
-(defn- explicit-has-more [page]
-  (try
-    (let [value (clojure.lang.Reflector/invokeNoArgInstanceMember page "hasMore")]
-      (cond
-        (instance? java.util.Optional value)
-        (if (.isPresent ^java.util.Optional value)
-          (.get ^java.util.Optional value)
-          no-explicit-has-more)
-
-        (instance? Boolean value) value
-        :else no-explicit-has-more))
-    (catch IllegalArgumentException _
-      no-explicit-has-more)))
-
-(defn- page-has-next? [^Page page]
-  (let [has-more (explicit-has-more page)]
-    (if (identical? no-explicit-has-more has-more)
-      (.hasNextPage page)
-      (boolean has-more))))
-
 (defn all-pages
-  "Realize each element from all pages of an SDK *ListPage. Honor an explicit
-  `hasMore` value when available; otherwise use the generic Page contract."
-  [^Page page]
-  (loop [page page
-         result (transient [])]
-    (let [result (reduce conj! result (.items page))]
-      (if (page-has-next? page)
-        (recur (.nextPage page) result)
-        (persistent! result)))))
+  "Realize each element from all pages of an SDK *ListPage with its autoPager."
+  [page]
+  (vec (AutoPager. ^Page page nil)))
 
 (defn lazy-pages
   "Return a lazy sequence of elements from an SDK *ListPage.

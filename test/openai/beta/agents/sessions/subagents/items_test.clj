@@ -72,10 +72,15 @@
       (let [item (agent-message)
             captured (atom nil)
             page-holder (atom nil)
+            empty-page-holder (atom nil)
+            calls (atom 0)
             items (proxy [ItemService] []
                     (list [params]
-                      (reset! captured params)
-                      @page-holder))
+                      (let [call (swap! calls inc)]
+                        (when (= 1 call) (reset! captured params))
+                        (if (= 1 call)
+                          @page-holder
+                          @empty-page-holder))))
             _ (reset! page-holder
                       (-> (ItemListPage/builder)
                           (.service items)
@@ -88,6 +93,21 @@
                                          (.firstId "item_1")
                                          (.hasMore false)
                                          (.lastId "item_1")
+                                         (.object_ (JsonValue/from "list"))
+                                         (.build)))
+                          (.build)))
+            _ (reset! empty-page-holder
+                      (-> (ItemListPage/builder)
+                          (.service items)
+                          (.params (-> (ItemListParams/builder)
+                                       (.sessionId "sess_1")
+                                       (.subagentId "sub_1")
+                                       (.build)))
+                          (.response (-> (ItemListPageResponse/builder)
+                                         (.data [])
+                                         (.firstId (java.util.Optional/empty))
+                                         (.hasMore false)
+                                         (.lastId (java.util.Optional/empty))
                                          (.object_ (JsonValue/from "list"))
                                          (.build)))
                           (.build)))

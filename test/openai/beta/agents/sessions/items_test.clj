@@ -50,14 +50,18 @@
 
 (defn- item-page
   [^ItemService service ^ItemListParams params items has-more]
-  (let [^String first-id (-> ^AgentSessionItem (first items) .asMessage .id impl/opt-get)
-        ^String last-id (-> ^AgentSessionItem (last items) .asMessage .id impl/opt-get)
+  (let [^AgentSessionItem first-item (first items)
+        ^AgentSessionItem last-item (last items)
         ^ItemListPageResponse$Builder b (ItemListPageResponse/builder)
         response (do
                    (.data b ^java.util.List items)
-                   (.firstId b first-id)
+                   (.firstId b (if first-item
+                                 (-> first-item .asMessage .id impl/opt-get)
+                                 (java.util.Optional/empty)))
                    (.hasMore b (boolean has-more))
-                   (.lastId b last-id)
+                   (.lastId b (if last-item
+                                (-> last-item .asMessage .id impl/opt-get)
+                                (java.util.Optional/empty)))
                    (.build b))]
     (-> (ItemListPage/builder)
         (.service service)
@@ -95,14 +99,15 @@
     (if list-items
       (let [captured (atom [])
             service-ref (atom nil)
+            calls (atom 0)
             service (proxy [ItemService] []
                       (list [params]
                         (swap! captured conj params)
-                        (let [^ItemListParams params params
-                              after (impl/opt-get (.after params))]
-                          (if after
-                            (item-page @service-ref params
-                                       [(message-item "item_2" "second")] false)
+                        (let [^ItemListParams params params]
+                          (case (swap! calls inc)
+                            2 (item-page @service-ref params
+                                         [(message-item "item_2" "second")] false)
+                            3 (item-page @service-ref params [] false)
                             (item-page @service-ref params
                                        [(message-item "item_1" "first")] true)))))
             _ (reset! service-ref service)
@@ -115,9 +120,9 @@
         (is (= [:input-text :input-text]
                (mapv #(get-in % [:content 0 :type]) result)))
         (is (= [7 7] (mapv :future-field result)))
-        (is (= [nil "item_1"]
+        (is (= [nil "item_1" "item_2"]
                (mapv #(impl/opt-get (.after ^ItemListParams %)) @captured)))
-        (is (= [1 1]
+        (is (= [1 1 1]
                (mapv #(impl/opt-get (.limit ^ItemListParams %)) @captured))))
       (is false "openai.beta.agents.sessions.items/list-items is not implemented"))))
 

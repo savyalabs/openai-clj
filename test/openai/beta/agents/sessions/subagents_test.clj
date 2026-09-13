@@ -90,13 +90,18 @@
             captured-retrieve (atom nil)
             captured-list (atom nil)
             page-holder (atom nil)
+            empty-page-holder (atom nil)
+            calls (atom 0)
             subagents (proxy [SubagentService] []
                         (retrieve [params]
                           (reset! captured-retrieve params)
                           active)
                         (list [params]
-                          (reset! captured-list params)
-                          @page-holder))]
+                          (let [call (swap! calls inc)]
+                            (when (= 1 call) (reset! captured-list params))
+                            (if (= 1 call)
+                              @page-holder
+                              @empty-page-holder))))]
         ;; Build the SDK page without bypassing AutoPager.
         (reset! page-holder
                 (-> (SubagentListPage/builder)
@@ -109,6 +114,20 @@
                                    (.firstId "sub_1")
                                    (.hasMore false)
                                    (.lastId "sub_2")
+                                   (.object_ (JsonValue/from "list"))
+                                   (.build)))
+                    (.build)))
+        (reset! empty-page-holder
+                (-> (SubagentListPage/builder)
+                    (.service subagents)
+                    (.params (-> (SubagentListParams/builder)
+                                 (.sessionId "sess_1")
+                                 (.build)))
+                    (.response (-> (SubagentListPageResponse/builder)
+                                   (.data [])
+                                   (.firstId (java.util.Optional/empty))
+                                   (.hasMore false)
+                                   (.lastId (java.util.Optional/empty))
                                    (.object_ (JsonValue/from "list"))
                                    (.build)))
                     (.build)))
