@@ -258,6 +258,15 @@ operations are `session-accept`, `session-hangup`, `session-refer`,
 The SDK's Live `forks` and `sideband` services expose no operations in 4.62.0,
 so this namespace intentionally adds no wrappers for them.
 
+## Beta Agent Environments API
+
+`openai.beta.agents.environments/retrieve` retrieves a hosted environment.
+`openai.beta.agents.environments.files` provides `create` and `list` for
+environment files. `openai.beta.agents.environments.templates` provides
+`create`, `retrieve`, `update`, `list`, and `delete` for environment templates.
+Requests use kebab-case maps; responses are Clojure maps, and list operations
+collect all pages. These APIs are beta and may change upstream.
+
 ## Chat Completions
 
 Use the Responses API for new OpenAI work. Chat Completions supports
