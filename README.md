@@ -17,13 +17,13 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.28.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.29.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.28.0"]
+[net.clojars.savya/openai-clj "0.29.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
@@ -260,29 +260,65 @@ so this namespace intentionally adds no wrappers for them.
 
 ## Beta Agents API
 
-Subagent wrappers cover retrieval and paginated lists for subagents, their
-items, their turns, and turn items:
+Multi-agent orchestration: durable `Agent` definitions, `Session`s that run
+turns against an agent, subagents spawned within a session, sandboxed
+`Environment`s, and `Vault`s holding tool credentials.
 
 ```clojure
-(require '[openai.beta.agents.sessions.subagents :as subagents]
+(require '[openai.beta.agents :as agents]
+         '[openai.beta.agents.sessions :as sessions]
+         '[openai.beta.agents.sessions.turns :as turns]
+         '[openai.beta.agents.sessions.items :as items]
+         '[openai.beta.agents.sessions.events :as events]
+         '[openai.beta.agents.sessions.artifacts :as artifacts]
+         '[openai.beta.agents.sessions.subagents :as subagents]
          '[openai.beta.agents.sessions.subagents.items :as subagent-items]
          '[openai.beta.agents.sessions.subagents.turns :as subagent-turns]
-         '[openai.beta.agents.sessions.subagents.turns.items :as turn-items])
+         '[openai.beta.agents.sessions.subagents.turns.items :as turn-items]
+         '[openai.beta.agents.environments :as environments]
+         '[openai.beta.agents.environments.files :as env-files]
+         '[openai.beta.agents.environments.templates :as env-templates]
+         '[openai.beta.agents.vaults :as vaults]
+         '[openai.beta.agents.vaults.credentials :as credentials])
 
+;; Agents: create, retrieve, update, delete, list
+(agents/create client {:model "gpt-5.1" :name "researcher"})
+(agents/retrieve client "agent_...")
+(agents/list client)
+
+;; Sessions: create (optionally streaming), retrieve, update, delete, list
+(sessions/session-create client {:agent-id "agent_..."})
+(sessions/session-create-streaming client {:agent-id "agent_..."})
+
+;; Turns and items within a session
+(turns/list-turns client "sess_..." {:order :desc})
+(items/list-items client "sess_..." {:limit 20})
+
+;; Session-level events and artifacts
+(events/create client "sess_..." {...})
+(artifacts/list client "sess_...")
+(artifacts/content client "sess_..." "artifact_...")
+
+;; Subagents spawned within a session, and their own turns/items
 (subagents/subagent-retrieve client "sess_..." "subagent_...")
 (subagent-items/item-list client "sess_..." "subagent_..." {:limit 20})
 (subagent-turns/turn-list client "sess_..." "subagent_..." {:order :desc})
 (turn-items/item-list client "sess_..." "subagent_..." "turn_..." {})
+
+;; Sandboxed environments, plus their files and templates
+(environments/retrieve client "env_...")
+(env-files/create client "env_..." {...})
+(env-templates/list client)
+
+;; Vaults and the credentials stored in them
+(vaults/create-vault client {:name "prod-creds"})
+(credentials/create-credential client "vault_..." {:name "github"
+                                                     :auth {:type :static-bearer
+                                                            :token "..."}})
 ```
 
-`openai.beta.agents.environments/retrieve` retrieves a hosted environment.
-`openai.beta.agents.environments.files` provides `create` and `list` for
-environment files. `openai.beta.agents.environments.templates` provides
-`create`, `retrieve`, `update`, `list`, and `delete` for environment templates.
 Requests use kebab-case maps; responses are Clojure maps, and list operations
-collect all pages.
-
-This surface is beta and can change with the upstream SDK.
+collect all pages. This surface is beta and can change with the upstream SDK.
 
 ## Chat Completions
 
@@ -358,6 +394,7 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
          '[openai.videos :as videos]
          '[openai.chatkit :as chatkit]
          '[openai.beta.responses :as beta-responses]
+         '[openai.beta.agents :as agents]
          '[openai.realtime :as realtime]
          '[openai.live :as live]
          '[openai.webhooks :as webhooks]
@@ -384,6 +421,7 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
                        :size "1280x720" :seconds "8"})
 (chatkit/create-session client {:workflow {:id "wf_123"} :user "user_42"})
 (beta-responses/create-response client {:model "gpt-5" :input "Hello"})
+(agents/create client {:model "gpt-5.1" :name "researcher"})
 (live/live-create client {:session {:model "gpt-live-1"}
                           :transport {:sdp browser-sdp-offer}})
 (webhooks/unwrap webhook-client raw-body request-headers)
@@ -395,6 +433,11 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
 batches, models, and stored Chat Completions. `openai.realtime` contains
 WebSocket, session, client-secret, transcription, translation, and SIP call
 helpers. `openai.live` contains WebRTC session creation and lifecycle helpers.
+`openai.beta.agents` and its `sessions`, `sessions.turns`, `sessions.items`,
+`sessions.events`, `sessions.artifacts`, `sessions.subagents` (and its nested
+`items`/`turns`/`turns.items`), `environments` (and its nested `files` and
+`templates`), and `vaults` (and its nested `credentials`) sub-namespaces cover
+the beta multi-agent orchestration platform - see "Beta Agents API" above.
 `openai.content-provenance-checks` contains Content Provenance Checks.
 `openai.graders` maps to the stable grader-model service. Model names are passed
 through as strings, including `"gpt-6-astra"`. The service exposes
