@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.29.2] - 2026-09-16
+
+### Changed
+
+- Bump `com.openai/openai-java` (and `openai-java-bedrock`) to 4.63.3.
+  Build/CI-only upstream diff - no API surface changed. Full suite
+  verified green with no code changes required.
+
 ## [0.29.1] - 2026-09-14
 
 ### Changed
