@@ -4,6 +4,7 @@
             [openai.beta.responses :as responses])
   (:import (com.openai.core JsonValue)
            (com.openai.models.beta.responses BetaCompactedResponse
+                                             BetaResponseCompactionCompactingEvent
                                              BetaResponse
                                              BetaResponse$PromptCacheDiagnostics$CacheMiss
                                              BetaResponse$PromptCacheDiagnostics$CacheMiss$Reason
@@ -498,4 +499,18 @@
             :delta "Hel"
             :item-id "msg_1"
             :output-index 0}
+           (#'responses/event->map event)))))
+
+
+(deftest maps-beta-stream-compaction-compacting-event
+  (let [event (BetaResponseStreamEvent/ofResponseCompactionCompacting
+               (-> (BetaResponseCompactionCompactingEvent/builder)
+                   (.itemId "item_1")
+                   (.outputIndex 0)
+                   (.sequenceNumber 1)
+                   (.build)))]
+    (is (= {:type :compaction-compacting
+            :item-id "item_1"
+            :output-index 0
+            :sequence-number 1}
            (#'responses/event->map event)))))

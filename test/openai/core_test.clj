@@ -38,6 +38,7 @@
                                         Response$PromptCacheDiagnostics$CacheMiss$Reason
                                         ResponseCompletedEvent
                                         ResponseCreatedEvent
+                                        ResponseCompactionCompactingEvent
                                         ResponseErrorEvent
                                         ResponseFailedEvent
                                         ResponseFunctionToolCall
@@ -1663,6 +1664,20 @@
                (.response (response []))
                (.sequenceNumber 17)
                (.build))))))))
+
+
+(deftest maps-stream-compaction-compacting-event-to-clojure
+  (is (= {:type :compaction-compacting
+          :item-id "item_1"
+          :output-index 0
+          :sequence-number 18}
+         (event->map
+          (ResponseStreamEvent/ofCompactionCompacting
+           (-> (ResponseCompactionCompactingEvent/builder)
+               (.itemId "item_1")
+               (.outputIndex 0)
+               (.sequenceNumber 18)
+               (.build)))))))
 
 (defn- response-stream-event [factory class-name fields]
   (let [cls (Class/forName (str "com.openai.models.responses." class-name))

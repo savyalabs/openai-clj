@@ -843,6 +843,8 @@
       :queued {:type :queued
                :response (beta-response-data->map (:response m))}
       :error (select-keys (assoc m :type type) [:type :message :code])
+      :compaction-compacting (cond-> (assoc m :type type :item-id (:item-id m) :output-index (:output-index m) :sequence-number (:sequence-number m))
+                               (:agent m) (assoc :agent (:agent m)))
       (assoc m :type type))))
 
 (defn- drain-stream ^String [^StreamResponse stream on-event]
