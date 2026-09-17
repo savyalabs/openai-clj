@@ -185,6 +185,7 @@
                                          ResponseCreateParams$Moderation
                                          ResponseCreateParams$Moderation$Builder
                                          ResponseCompletedEvent
+                                         ResponseCompactionCompactingEvent
                                          ResponseError
                                          ResponseErrorEvent
                                          ResponseFailedEvent
@@ -1443,6 +1444,11 @@
     (.isQueued ev) (let [e (.asQueued ev)]
                      {:type :queued
                       :response (response->map (.response e))})
+    (.isCompactionCompacting ev) (let [e ^ResponseCompactionCompactingEvent (.asCompactionCompacting ev)]
+                                  {:type :compaction-compacting
+                                   :item-id (.itemId e)
+                                   :output-index (.outputIndex e)
+                                   :sequence-number (.sequenceNumber e)})
     :else (let [m (impl/sdk-object->clj ev)]
             (update m :type #(-> %
                                  (str/replace #"^response\." "")

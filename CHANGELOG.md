@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-09-17
+
+### Changed
+
+- Bump `com.openai/openai-java` (and `openai-java-bedrock`) to 4.64.0.
+
+### Added
+
+- Add the Responses API `response.compaction.compacting` stream event.
+  - `openai.core/stream` now normalizes `ResponseCompactionCompactingEvent` to
+    `{:type :compaction-compacting :item-id ... :output-index ... :sequence-number ...}`.
+  - `openai.beta.responses/stream` similarly normalizes the beta variant
+    `BetaResponseCompactionCompactingEvent`, including its optional `:agent` field.
+
+
 ## [0.29.2] - 2026-09-16
 
 ### Changed

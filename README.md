@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.29.2"}
+net.clojars.savya/openai-clj {:mvn/version "0.30.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.29.2"]
+[net.clojars.savya/openai-clj "0.30.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.63.3](https://github.com/openai/openai-java/releases/tag/v4.63.3).
+Tracks [`com.openai/openai-java` 4.64.0](https://github.com/openai/openai-java/releases/tag/v4.64.0).
 
 ## Providers
 
