@@ -255,8 +255,9 @@
       (let [options (client-options c)
             headers (.headers options)
             retrying-client (private-field options "originalHttpClient")
-            okhttp-client (private-field retrying-client "httpClient")
-            okhttp (.getOkHttpClient$openai_java_client_okhttp okhttp-client)]
+            closing-client (private-field retrying-client "$$delegate_0")
+            okhttp-client (private-field closing-client "httpClient")
+            okhttp (private-field okhttp-client "okHttpClient")]
         (is (= "admin-test" (opt (.adminApiKey options))))
         (is (= ["one"] (.values headers "X-Test")))
         (is (= ["a" "b"] (.values headers "X-Multi")))
@@ -364,7 +365,8 @@
                    :prompt-cache-key "cache-key"
                    :prompt-cache-options {:mode :standard
                                           :ttl :24h
-                                          :comparison-response-id "resp_123"}
+                                          :comparison-response-id "resp_123"
+                                          :prewarm true}
                    :safety-identifier "safe-user"
                    :service-tier :priority
                    :previous-response-id "resp_123"
@@ -385,6 +387,7 @@
     (is (= "standard" (-> p .promptCacheOptions opt .mode opt .asString)))
     (is (= "24h" (-> p .promptCacheOptions opt .ttl opt .asString)))
     (is (= "resp_123" (-> p .promptCacheOptions opt .comparisonResponseId opt)))
+    (is (true? (opt (-> p .promptCacheOptions opt .prewarm))))
     (is (= "safe-user" (opt (.safetyIdentifier p))))
     (is (= "priority" (.asString (opt (.serviceTier p)))))
     (is (= "resp_123" (opt (.previousResponseId p))))

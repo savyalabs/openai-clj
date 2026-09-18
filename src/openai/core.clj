@@ -597,11 +597,12 @@
     (.build b)))
 
 (defn- ->prompt-cache-options ^ResponseCreateParams$PromptCacheOptions
-  [{:keys [mode ttl comparison-response-id]}]
+  [{:keys [mode ttl comparison-response-id prewarm]}]
   (let [b (ResponseCreateParams$PromptCacheOptions/builder)]
     (when mode (.mode b (ResponseCreateParams$PromptCacheOptions$Mode/of (name mode))))
     (when ttl (.ttl b (ResponseCreateParams$PromptCacheOptions$Ttl/of (name ttl))))
     (when comparison-response-id (.comparisonResponseId b ^String comparison-response-id))
+    (when (some? prewarm) (.prewarm b (boolean prewarm)))
     (.build b)))
 
 (defn- ->prompt ^ResponsePrompt [{:keys [id version variables]}]
