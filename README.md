@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.30.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.31.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.30.0"]
+[net.clojars.savya/openai-clj "0.31.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.64.0](https://github.com/openai/openai-java/releases/tag/v4.64.0).
+Tracks [`com.openai/openai-java` 4.65.0](https://github.com/openai/openai-java/releases/tag/v4.65.0).
 
 ## Providers
 
@@ -453,6 +453,9 @@ includes beta Agents, ChatKit, and Responses. The Assistants API (assistants/thr
 wrapped because the SDK marks it as deprecated in favor of the Responses API.
 Async clients, raw-response accessors, and per-call `RequestOptions` are
 transport and accessor variants, not endpoints. The library does not duplicate them.
+The managed Responses WebSocket connection (added in SDK 4.65.0) is likewise a
+transport variant over an endpoint already covered via REST/SSE, and is not
+wrapped.
 
 ## Running tests
 
