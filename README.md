@@ -425,9 +425,23 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
 (live/live-create client {:session {:model "gpt-live-1"}
                           :transport {:sdp browser-sdp-offer}})
 (webhooks/unwrap webhook-client raw-body request-headers)
+(webhooks/create client {:name "primary" :url "https://example.test/webhooks"
+                         :event-types [:response-completed]})
+(webhooks/list client {:limit 20})
+(webhooks/retrieve client "we_...")
+(webhooks/update client "we_..." {:name "primary-v2"})
+(webhooks/delete client "we_...")
+(webhooks/rotate-secret client "we_..." {:keep-old-secret-active-for-24-hours true})
+(webhooks/test-webhook-endpoint client "we_..." {:event-type :response-completed})
+(webhooks/list-event-types client)
 (admin/project-list admin-client {:limit 20})
 (admin-projects/service-account-list admin-client "proj_...")
 ```
+
+Webhook endpoint management is available from `openai.webhooks`: `create`,
+`list`, `retrieve`, `update`, `delete`, `rotate-secret`,
+`test-webhook-endpoint`, and `list-event-types`. Endpoint `list` eagerly
+returns all pages; the event-type endpoint returns its SDK-provided list.
 
 `openai.core` also contains Responses, Chat Completions, embeddings, files,
 batches, models, and stored Chat Completions. `openai.realtime` contains

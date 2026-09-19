@@ -9,6 +9,7 @@
 - Bump `com.openai/openai-java` (and `openai-java-bedrock`) to 4.65.0.
   - New agent session model/reasoning/service-tier settings on session update (wrap via existing passthrough).
   - New prompt-cache `prewarm` boolean option (explicitly wrapped).
+  - Webhook endpoint CRUD operations, secret rotation, endpoint testing, and event-type listing.
   - Managed Responses WebSocket connections (transport variant, deliberately not wrapped - see Scope Exclusions).
 
 ## [0.30.0] - 2026-09-17
