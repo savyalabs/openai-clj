@@ -49,3 +49,106 @@
         (is (= {:openai/error :webhook-signature} (ex-data error)))
         (is (= "bad signature" (.getMessage ^Exception error)))
         (is (instance? IllegalArgumentException (.getCause ^Exception error)))))))
+
+
+(defn- api [sym]
+  (some-> (ns-resolve 'openai.webhooks sym) deref))
+
+(defn- api-error []
+  (-> (com.openai.errors.BadRequestException/builder)
+      (.headers (-> (com.openai.core.http.Headers/builder) (.build)))
+      (.build)))
+
+(defn- endpoint []
+  (-> (com.openai.models.webhooks.WebhookEndpoint/builder)
+      (.id "we_123") (.createdAt 1) (.eventTypes ["response.completed"])
+      (.name "primary") (.object_ (com.openai.core.JsonValue/from "webhook_endpoint"))
+      (.signingSecretHint "whsec_...") (.url "https://example.test/webhooks")
+      (.updatedAt 2) (.build)))
+
+(defn- endpoint-with-secret []
+  (-> (com.openai.models.webhooks.WebhookEndpointWithSecret/builder)
+      (.id "we_123") (.createdAt 1) (.eventTypes ["response.completed"])
+      (.name "primary") (.object_ (com.openai.core.JsonValue/from "webhook_endpoint"))
+      (.signingSecret "whsec_secret") (.signingSecretHint "whsec_...")
+      (.url "https://example.test/webhooks") (.updatedAt 2) (.build)))
+
+(defn- webhook-client [service]
+  (proxy [OpenAIClient] [] (webhooks [] service)))
+
+(deftest wraps-webhook-endpoint-management
+  (if-let [create (api 'create)]
+    (let [calls (atom [])
+          event-types (proxy [com.openai.services.blocking.webhooks.EventTypeService] []
+                        (list [params]
+                          (swap! calls conj [:event-types params])
+                          (-> (com.openai.models.webhooks.WebhookEventTypeList/builder)
+                              (.data ["response.completed"]) (.object_ (com.openai.core.JsonValue/from "list"))
+                              (.build))))
+          service-ref (atom nil)
+          service (proxy [WebhookService] []
+                    (eventTypes [] event-types)
+                    (create [params] (swap! calls conj [:create params]) (endpoint-with-secret))
+                    (retrieve [params] (swap! calls conj [:retrieve params]) (endpoint))
+                    (update [params] (swap! calls conj [:update params]) (endpoint))
+                    (delete [params] (swap! calls conj [:delete params]) nil)
+                    (rotateSecret [params] (swap! calls conj [:rotate-secret params]) (endpoint-with-secret))
+                    (test [params]
+                      (swap! calls conj [:test params])
+                      (-> (com.openai.models.webhooks.WebhookEndpointTestResult/builder)
+                          (.eventType "response.completed") (.object_ (com.openai.core.JsonValue/from "webhook_test"))
+                          (.statusCode 200) (.success (com.openai.core.JsonValue/from true))
+                          (.webhookEndpointId "we_123") (.build)))
+                    (list [params]
+                      (swap! calls conj [:list params])
+                      (let [after (.after ^com.openai.models.webhooks.WebhookListParams params)
+                            first-page? (or (nil? after) (not (.isPresent after)))]
+                        (-> (com.openai.models.webhooks.WebhookListPage/builder)
+                            (.service @service-ref) (.params params)
+                            (.response (-> (com.openai.models.webhooks.WebhookEndpointList/builder)
+                                           (.data (if first-page? [(endpoint)] []))
+                                           (.firstId "we_123") (.hasMore false) (.lastId "we_123")
+                                           (.object_ (com.openai.core.JsonValue/from "list")) (.build)))
+                            (.build)))))
+          _ (reset! service-ref service)
+          client (webhook-client service)]
+      (is (= "whsec_secret" (:signing-secret (create client {:name "primary" :url "https://example.test/webhooks" :event-types [:response-completed]}))))
+      (is (= "we_123" (:id ((api 'retrieve) client "we_123"))))
+      (is (= "primary" (:name ((api 'update) client "we_123" {:name "primary"}))))
+      (is (= [{:id "we_123" :created-at 1 :event-types ["response.completed"] :name "primary" :signing-secret-hint "whsec_..." :url "https://example.test/webhooks" :updated-at 2}]
+             ((api 'list) client {:limit 10})))
+      (is (nil? ((api 'delete) client "we_123")))
+      (is (= "whsec_secret" (:signing-secret ((api 'rotate-secret) client "we_123" {:keep-old-secret-active-for-24-hours true}))))
+      (is (= {:event-type "response.completed" :status-code 200 :success true :webhook-endpoint-id "we_123"} ((api 'test-webhook-endpoint) client "we_123" {:event-type :response-completed})))
+      (is (= ["response.completed"] ((api 'list-event-types) client))))
+    (is false "webhook endpoint management is not implemented")))
+
+(deftest webhook-endpoint-management-uses-api-errors
+  (if-let [create (api 'create)]
+    (let [event-types (proxy [com.openai.services.blocking.webhooks.EventTypeService] []
+                        (list [_] (throw (api-error))))
+          service (proxy [WebhookService] []
+                    (eventTypes [] event-types)
+                    (create [_] (throw (api-error)))
+                    (retrieve [_] (throw (api-error)))
+                    (update [_] (throw (api-error)))
+                    (list [_] (throw (api-error)))
+                    (delete [_] (throw (api-error)))
+                    (rotateSecret [_] (throw (api-error)))
+                    (test [_] (throw (api-error))))
+          client (webhook-client service)
+          calls [#(create client {:name "primary" :url "https://example.test" :event-types [:response-completed]})
+                 #((api 'list) client)
+                 #((api 'retrieve) client "we_123")
+                 #((api 'update) client "we_123" {:name "primary"})
+                 #((api 'delete) client "we_123")
+                 #((api 'rotate-secret) client "we_123" {})
+                 #((api 'test-webhook-endpoint) client "we_123" {:event-type :response-completed})
+                 #((api 'list-event-types) client)]]
+      (doseq [call calls]
+        (try
+          (call)
+          (is false "expected API error")
+          (catch clojure.lang.ExceptionInfo e
+            (is (= :api-error (:openai/error (ex-data e))))))))
+    (is false "webhook endpoint management is not implemented")))
