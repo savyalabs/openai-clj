@@ -12,7 +12,7 @@
            (java.util.concurrent Executors)
            (okhttp3 OkHttpClient)))
 
-(defn- read-bytes [^HttpExchange exchange]
+(defn read-bytes [^HttpExchange exchange]
   (with-open [in (.getRequestBody exchange)]
     (let [out (ByteArrayOutputStream.)
           buf (byte-array 1024)]
@@ -23,7 +23,7 @@
             (recur))))
       (.toString out "UTF-8"))))
 
-(defn- start-http-fixture! [handler]
+(defn start-http-fixture! [handler]
   (let [server (HttpServer/create (InetSocketAddress. "127.0.0.1" 0) 0)
         executor (Executors/newCachedThreadPool)]
     (.createContext server "/" (reify HttpHandler
@@ -35,11 +35,11 @@
      :executor executor
      :base-url (str "http://127.0.0.1:" (.getPort (.getAddress server)) "/v1")}))
 
-(defn- stop-http-fixture! [{:keys [^HttpServer server ^java.util.concurrent.ExecutorService executor]}]
+(defn stop-http-fixture! [{:keys [^HttpServer server ^java.util.concurrent.ExecutorService executor]}]
   (.stop server 0)
   (.shutdownNow executor))
 
-(defn- respond! [^HttpExchange exchange status content-type body]
+(defn respond! [^HttpExchange exchange status content-type body]
   (let [bytes (.getBytes body StandardCharsets/UTF_8)]
     (.set (.getResponseHeaders exchange) "Content-Type" content-type)
     (.sendResponseHeaders exchange status (alength bytes))

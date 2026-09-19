@@ -130,7 +130,8 @@
             :prompt-cache-retention "24h"
             :prompt-cache-options {:mode :standard
                                    :ttl :24h
-                                   :comparison-response-id "resp_123"}})
+                                   :comparison-response-id "resp_123"
+                                   :prewarm true}})
         prompt (impl/opt-get (.prompt p))
         variables (impl/opt-get (.variables prompt))
         context (first (impl/opt-get (.contextManagement p)))
@@ -152,6 +153,7 @@
     (is (= "24h" (.asString (impl/opt-get (.promptCacheRetention p)))))
     (is (= "resp_123"
            (-> p .promptCacheOptions impl/opt-get .comparisonResponseId impl/opt-get)))
+    (is (true? (-> p .promptCacheOptions impl/opt-get .prewarm impl/opt-get)))
     (is (= "look" (.text (.asInputText (first content)))))
     (is (= "https://example.test/cat.png"
            (impl/opt-get (.imageUrl (.asInputImage (second content))))))

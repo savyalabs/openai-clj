@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.30.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.31.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.30.0"]
+[net.clojars.savya/openai-clj "0.31.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.64.0](https://github.com/openai/openai-java/releases/tag/v4.64.0).
+Tracks [`com.openai/openai-java` 4.65.0](https://github.com/openai/openai-java/releases/tag/v4.65.0).
 
 ## Providers
 
@@ -425,9 +425,23 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
 (live/live-create client {:session {:model "gpt-live-1"}
                           :transport {:sdp browser-sdp-offer}})
 (webhooks/unwrap webhook-client raw-body request-headers)
+(webhooks/create client {:name "primary" :url "https://example.test/webhooks"
+                         :event-types [:response-completed]})
+(webhooks/list client {:limit 20})
+(webhooks/retrieve client "we_...")
+(webhooks/update client "we_..." {:name "primary-v2"})
+(webhooks/delete client "we_...")
+(webhooks/rotate-secret client "we_..." {:keep-old-secret-active-for-24-hours true})
+(webhooks/test-webhook-endpoint client "we_..." {:event-type :response-completed})
+(webhooks/list-event-types client)
 (admin/project-list admin-client {:limit 20})
 (admin-projects/service-account-list admin-client "proj_...")
 ```
+
+Webhook endpoint management is available from `openai.webhooks`: `create`,
+`list`, `retrieve`, `update`, `delete`, `rotate-secret`,
+`test-webhook-endpoint`, and `list-event-types`. Endpoint `list` eagerly
+returns all pages; the event-type endpoint returns its SDK-provided list.
 
 `openai.core` also contains Responses, Chat Completions, embeddings, files,
 batches, models, and stored Chat Completions. `openai.realtime` contains
@@ -453,6 +467,9 @@ includes beta Agents, ChatKit, and Responses. The Assistants API (assistants/thr
 wrapped because the SDK marks it as deprecated in favor of the Responses API.
 Async clients, raw-response accessors, and per-call `RequestOptions` are
 transport and accessor variants, not endpoints. The library does not duplicate them.
+The managed Responses WebSocket connection (added in SDK 4.65.0) is likewise a
+transport variant over an endpoint already covered via REST/SSE, and is not
+wrapped.
 
 ## Running tests
 
