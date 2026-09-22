@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-09-21
+
+### Changed
+
+- Bump `com.openai/openai-java` (and `openai-java-bedrock`) to 4.66.1.
+
+### Added
+
+- Add organization external-storage configuration create, retrieve, list,
+  delete, and validate operations to `openai.admin`.
+- Add `openai.safety/case-retrieve` for retrieving safety cases.
+- Support environment-variable vault credentials through the existing
+  `openai.beta.agents.vaults.credentials` wrappers.
+- Make the new `safety.warning_issued` and `safety.deactivation_issued`
+  webhook events, including incoming-call SIP media security, available through
+  the existing generic `openai.webhooks/unwrap` mapping.
+
 ## [0.31.0] - 2026-09-18
 
 ### Changed

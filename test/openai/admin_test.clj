@@ -5,6 +5,7 @@
             [openai.impl :as impl])
   (:import (com.openai.models.admin.organization.adminapikeys AdminApiKeyCreateParams)
            (com.openai.models.admin.organization.auditlogs AuditLogListParams AuditLogListParams$EventType)
+           (com.openai.models.admin.organization.externalstorage ExternalStorageConfiguration ExternalStorageCreateParams ExternalStorageDeleteParams ExternalStorageListParams ExternalStorageListParams$Order ExternalStorageRetrieveParams ExternalStorageValidateParams)
            (com.openai.models.admin.organization.groups Group Group$Builder GroupCreateParams)
            (com.openai.models.admin.organization.groups.users UserCreateParams)
            (com.openai.models.admin.organization.invites Invite Invite$Builder Invite$Role Invite$Status)
@@ -287,3 +288,48 @@
                               "group_1" {:user-id "user_1"})]
     (is (= "group_1" (impl/opt-get (.groupId p))))
     (is (= "user_1" (.userId p)))))
+
+(deftest exposes-external-storage-operations
+  (doseq [operation '[external-storage-create external-storage-retrieve
+                      external-storage-list external-storage-delete
+                      external-storage-validate]]
+    (is (fn? (some-> (ns-resolve 'openai.admin operation) deref))
+        (str "missing wrapper " operation))))
+
+(deftest builds-external-storage-params
+  (let [^ExternalStorageCreateParams create
+        (#'admin/->external-storage-create-params
+         {:project-id "proj_1"
+          :provider {:type :aws :bucket "exports" :role-arn "arn:aws:iam::1:role/openai"}})
+        ^ExternalStorageRetrieveParams retrieve
+        (#'admin/->external-storage-retrieve-params "storage_1")
+        ^ExternalStorageDeleteParams delete
+        (#'admin/->external-storage-delete-params "storage_1")
+        ^ExternalStorageValidateParams validate
+        (#'admin/->external-storage-validate-params "storage_1")
+        ^ExternalStorageListParams list
+        (#'admin/->external-storage-list-params
+         {:after "storage_0" :limit 20 :order :desc :project-id "proj_1"})]
+    (is (= "proj_1" (.projectId create)))
+    (is (.isAws (.provider create)))
+    (is (= "exports" (.bucket (.asAws (.provider create)))))
+    (is (= "storage_1" (.get (.externalStorageId retrieve))))
+    (is (= "storage_1" (.get (.externalStorageId delete))))
+    (is (= "storage_1" (.get (.externalStorageId validate))))
+    (is (= "storage_0" (.get (.after list))))
+    (is (= 20 (.get (.limit list))))
+    (is (= "desc" (.asString ^ExternalStorageListParams$Order
+                               (.get (.order list)))))
+    (is (= "proj_1" (.get (.projectId list))))))
+
+(deftest converts-external-storage-configuration
+  (let [configuration (impl/sdk-input-object
+                       {:id "storage_1" :created-at 123 :geography "us"
+                        :object "external_storage" :project-id "proj_1"
+                        :provider {:type :aws :bucket "exports" :role-arn "arn:aws:iam::1:role/openai"}
+                        :status "active"}
+                       ExternalStorageConfiguration)]
+    (is (= {:id "storage_1" :created-at 123 :geography "us" :project-id "proj_1"
+            :provider {:type :aws :bucket "exports" :role-arn "arn:aws:iam::1:role/openai"}
+            :status :active}
+           (#'admin/external-storage->map configuration)))))

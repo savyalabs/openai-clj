@@ -7,6 +7,7 @@
            (com.openai.models.admin.organization.auditlogs AuditLogListPage AuditLogListParams AuditLogListParams$EffectiveAt AuditLogListParams$EventType AuditLogListResponse)
            (com.openai.models.admin.organization.certificates Certificate Certificate$CertificateDetails CertificateActivatePage CertificateActivateParams CertificateActivateResponse CertificateActivateResponse$CertificateDetails CertificateCreateParams CertificateDeactivatePage CertificateDeactivateParams CertificateDeactivateResponse CertificateDeactivateResponse$CertificateDetails CertificateDeleteResponse CertificateListPage CertificateListParams CertificateListParams$Order CertificateListResponse CertificateListResponse$CertificateDetails CertificateRetrieveParams CertificateRetrieveParams$Include CertificateUpdateParams)
            (com.openai.models.admin.organization.dataretention DataRetentionUpdateParams DataRetentionUpdateParams$RetentionType OrganizationDataRetention)
+           (com.openai.models.admin.organization.externalstorage ExternalStorageConfiguration ExternalStorageCreateParams ExternalStorageCreateParams$Provider ExternalStorageDeleted ExternalStorageDeleteParams ExternalStorageListPage ExternalStorageListParams ExternalStorageListParams$Order ExternalStorageRetrieveParams ExternalStorageValidateParams)
            (com.openai.models.admin.organization.groups Group GroupCreateParams GroupDeleteResponse GroupListPage GroupListParams GroupListParams$Order GroupUpdateParams GroupUpdateResponse)
            (com.openai.models.admin.organization.invites Invite Invite$Project InviteCreateParams InviteCreateParams$Project InviteCreateParams$Project$Role InviteCreateParams$Role InviteDeleteResponse InviteListPage InviteListParams)
            (com.openai.models.admin.organization.projects Project ProjectCreateParams ProjectListPage ProjectListParams ProjectUpdateParams)
@@ -15,7 +16,7 @@
            (com.openai.models.admin.organization.roles Role RoleCreateParams RoleDeleteResponse RoleListPage RoleListParams RoleListParams$Order RoleUpdateParams)
            (com.openai.models.admin.organization.users OrganizationUser UserDeleteResponse UserListPage UserListParams UserUpdateParams)
            (com.openai.services.blocking.admin OrganizationService)
-           (com.openai.services.blocking.admin.organization AdminApiKeyService AuditLogService CertificateService DataRetentionService GroupService InviteService ProjectService RoleService SpendAlertService SpendLimitService UsageService UserService)))
+           (com.openai.services.blocking.admin.organization AdminApiKeyService AuditLogService CertificateService DataRetentionService ExternalStorageService GroupService InviteService ProjectService RoleService SpendAlertService SpendLimitService UsageService UserService)))
 (set! *warn-on-reflection* true)
 
 (defn- ->project-create-params ^ProjectCreateParams [{:keys [name]}]
@@ -24,6 +25,82 @@
 
 (defn- organization ^OrganizationService [^OpenAIClient client]
   (.organization (.admin client)))
+
+(defn- ->external-storage-create-params ^ExternalStorageCreateParams
+  [{:keys [project-id provider]}]
+  (when-not project-id (impl/missing-key! :project-id))
+  (when-not provider (impl/missing-key! :provider))
+  (let [^com.openai.models.admin.organization.externalstorage.ExternalStorageCreateParams$Builder b
+        (ExternalStorageCreateParams/builder)]
+    (.projectId b ^String project-id)
+    (.provider b ^ExternalStorageCreateParams$Provider
+               (impl/sdk-input-object provider ExternalStorageCreateParams$Provider))
+    (.build b)))
+
+(defn- ->external-storage-retrieve-params ^ExternalStorageRetrieveParams [^String id]
+  (when-not id (impl/missing-key! :id))
+  (-> (ExternalStorageRetrieveParams/builder) (.externalStorageId id) (.build)))
+
+(defn- ->external-storage-delete-params ^ExternalStorageDeleteParams [^String id]
+  (when-not id (impl/missing-key! :id))
+  (-> (ExternalStorageDeleteParams/builder) (.externalStorageId id) (.build)))
+
+(defn- ->external-storage-validate-params ^ExternalStorageValidateParams [^String id]
+  (when-not id (impl/missing-key! :id))
+  (-> (ExternalStorageValidateParams/builder) (.externalStorageId id) (.build)))
+
+(defn- ->external-storage-list-params ^ExternalStorageListParams
+  [{:keys [after limit order project-id]}]
+  (let [b (ExternalStorageListParams/builder)]
+    (when after (.after b ^String after))
+    (when limit (.limit b (long limit)))
+    (when order (.order b (ExternalStorageListParams$Order/of (impl/enum-name order))))
+    (when project-id (.projectId b ^String project-id))
+    (.build b)))
+
+(defn- keywordize-types [x]
+  (cond
+    (map? x) (cond-> (into {} (map (fn [[k v]] [k (keywordize-types v)])) x)
+              (string? (:type x)) (update :type impl/->keyword))
+    (vector? x) (mapv keywordize-types x)
+    :else x))
+
+(defn- external-storage->map [^ExternalStorageConfiguration configuration]
+  {:id (.id configuration)
+   :created-at (.createdAt configuration)
+   :geography (.geography configuration)
+   :project-id (.projectId configuration)
+   :provider (keywordize-types (impl/sdk-object->clj (.provider configuration)))
+   :status (impl/->keyword (.asString (.status configuration)))})
+
+(defn external-storage-create [^OpenAIClient client req]
+  (impl/with-api-errors
+    (let [^ExternalStorageService svc (.externalStorage (organization client))]
+      (external-storage->map (.create svc (->external-storage-create-params req))))))
+
+(defn external-storage-retrieve [^OpenAIClient client id]
+  (impl/with-api-errors
+    (let [^ExternalStorageService svc (.externalStorage (organization client))]
+      (external-storage->map (.retrieve svc (->external-storage-retrieve-params id))))))
+
+(defn external-storage-list
+  ([^OpenAIClient client] (external-storage-list client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^ExternalStorageService svc (.externalStorage (organization client))
+           ^ExternalStorageListPage page (.list svc (->external-storage-list-params opts))]
+       (mapv external-storage->map (impl/all-pages page))))))
+
+(defn external-storage-delete [^OpenAIClient client id]
+  (impl/with-api-errors
+    (let [^ExternalStorageService svc (.externalStorage (organization client))
+          ^ExternalStorageDeleted response (.delete svc (->external-storage-delete-params id))]
+      {:id (.id response) :deleted (.deleted response)})))
+
+(defn external-storage-validate [^OpenAIClient client id]
+  (impl/with-api-errors
+    (let [^ExternalStorageService svc (.externalStorage (organization client))]
+      (external-storage->map (.validate svc (->external-storage-validate-params id))))))
 
 (defn- ->admin-api-key-create-params ^AdminApiKeyCreateParams [{:keys [name expires-in-seconds]}]
   (when-not name (impl/missing-key! :name))

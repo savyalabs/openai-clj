@@ -5,8 +5,11 @@
            (com.openai.models.safety.alerts AlertRetrieveParams
                                             SafetyAlert
                                             SafetyAlert$ErrorType)
+           (com.openai.models.safety.cases CaseRetrieveParams
+                                           SafetyCase
+                                           SafetyCase$Notice$Type)
            (com.openai.services.blocking SafetyService)
-           (com.openai.services.blocking.safety AlertService)))
+           (com.openai.services.blocking.safety AlertService CaseService)))
 (set! *warn-on-reflection* true)
 
 (defn- ->retrieve-params ^AlertRetrieveParams [^String alert-id]
@@ -27,3 +30,23 @@
     (let [^SafetyService svc (.safety client)
           ^AlertService alerts (.alerts svc)]
       (alert->map (.retrieve alerts (->retrieve-params alert-id))))))
+
+(defn- ->case-retrieve-params ^CaseRetrieveParams [^String case-id]
+  (when-not case-id (impl/missing-key! :case-id))
+  (-> (CaseRetrieveParams/builder) (.id case-id) (.build)))
+
+(defn- safety-case->map [^SafetyCase safety-case]
+  (cond-> {:id (.id safety-case)
+           :created-at (.createdAt safety-case)
+           :entity-identifier (.entityIdentifier safety-case)
+           :notice {:type (impl/->keyword
+                           (.asString ^SafetyCase$Notice$Type
+                                      (.type (.notice safety-case))))}}
+    (.isPresent (.reason safety-case))
+    (assoc :reason (impl/opt-get (.reason safety-case)))))
+
+(defn case-retrieve [^OpenAIClient client ^String case-id]
+  (impl/with-api-errors
+    (let [^SafetyService svc (.safety client)
+          ^CaseService cases (.cases svc)]
+      (safety-case->map (.retrieve cases (->case-retrieve-params case-id))))))

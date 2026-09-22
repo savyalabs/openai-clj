@@ -92,6 +92,12 @@
                            :token-endpoint "https://example.test/token"
                            :token-endpoint-auth {:type :client-secret-post
                                                  :client-secret "test-client-secret"}}}})
+        (create-credential
+         client
+         "vault_1"
+         {:name "Environment credential"
+          :auth {:type :environment-variable
+                 :name "GITHUB_TOKEN"}})
         (testing "static bearer request"
           (let [^CredentialCreateParams params (first @captured)
                 auth (json-value->clj (.auth params))]
@@ -108,6 +114,10 @@
             (is (= "test-refresh-token" (get-in auth [:refresh :refresh-token])))
             (is (= "client_secret_post"
                    (get-in auth [:refresh :token-endpoint-auth :type])))))
+        (testing "environment variable request"
+          (let [^CredentialCreateParams params (nth @captured 2)
+                auth (json-value->clj (.auth params))]
+            (is (= {:type "environment_variable" :name "GITHUB_TOKEN"} auth))))
         (testing "response"
           (is (= {:id "cred_1"
                   :auth {:type :static-bearer

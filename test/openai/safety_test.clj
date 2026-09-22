@@ -1,9 +1,11 @@
 (ns openai.safety-test
   (:require [clojure.test :refer [deftest is]]
+            [openai.impl :as impl]
             [openai.safety :as safety])
   (:import (com.openai.models.safety.alerts AlertRetrieveParams
                                             SafetyAlert
-                                            SafetyAlert$ErrorType)))
+                                            SafetyAlert$ErrorType)
+           (com.openai.models.safety.cases CaseRetrieveParams SafetyCase)))
 
 (set! *warn-on-reflection* true)
 
@@ -46,3 +48,18 @@
 (deftest builds-alert-retrieve-params
   (let [^AlertRetrieveParams params (#'safety/->retrieve-params "alert_123")]
     (is (= "alert_123" (.get (.id params))))))
+
+(deftest exposes-safety-case-retrieve
+  (is (fn? (some-> (ns-resolve 'openai.safety 'case-retrieve) deref))
+      "missing case-retrieve wrapper"))
+
+(deftest builds-and-converts-safety-case
+  (let [^CaseRetrieveParams params (#'safety/->case-retrieve-params "case_123")
+        safety-case (impl/sdk-input-object
+                     {:id "case_123" :created-at 123 :entity-identifier "org_123"
+                      :notice {:type "warning"} :reason "Review required"}
+                     SafetyCase)]
+    (is (= "case_123" (.get (.id params))))
+    (is (= {:id "case_123" :created-at 123 :entity-identifier "org_123"
+            :notice {:type :warning} :reason "Review required"}
+           (#'safety/safety-case->map safety-case)))))

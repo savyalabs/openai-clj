@@ -1,9 +1,10 @@
 (ns openai.webhooks-test
   (:require [clojure.test :refer [deftest is testing]]
+            [openai.impl :as impl]
             [openai.webhooks :as webhooks])
   (:import (com.openai.client OpenAIClient)
            (com.openai.core.http Headers)
-           (com.openai.models.webhooks WebhookVerificationParams)
+           (com.openai.models.webhooks RealtimeCallIncomingWebhookEvent SafetyDeactivationIssuedWebhookEvent SafetyWarningIssuedWebhookEvent WebhookVerificationParams)
            (com.openai.services.blocking WebhookService)
            (java.lang.reflect InvocationHandler Proxy)))
 
@@ -49,6 +50,25 @@
         (is (= {:openai/error :webhook-signature} (ex-data error)))
         (is (= "bad signature" (.getMessage ^Exception error)))
         (is (instance? IllegalArgumentException (.getCause ^Exception error)))))))
+
+(deftest converts-new-safety-and-sip-webhook-events
+  (let [warning (impl/sdk-input-object
+                 {:id "evt_warning" :created-at 123 :object "event"
+                  :type "safety.warning_issued" :data {:id "case_1"}}
+                 SafetyWarningIssuedWebhookEvent)
+        deactivation (impl/sdk-input-object
+                      {:id "evt_deactivation" :created-at 124 :object "event"
+                       :type "safety.deactivation_issued" :data {:id "case_2"}}
+                      SafetyDeactivationIssuedWebhookEvent)
+        incoming (impl/sdk-input-object
+                  {:id "evt_call" :created-at 125 :object "event"
+                   :type "realtime.call.incoming"
+                   :data {:call-id "call_1" :sip-headers [] :sip-media-security "srtp"}}
+                  RealtimeCallIncomingWebhookEvent)]
+    (is (= "safety.warning_issued" (:type (impl/sdk-object->clj warning))))
+    (is (= "case_2" (get-in (impl/sdk-object->clj deactivation) [:data :id])))
+    (is (= "srtp" (get-in (impl/sdk-object->clj incoming)
+                            [:data :sip-media-security])))))
 
 
 (defn- api [sym]
