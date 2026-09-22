@@ -5,6 +5,7 @@
            (com.openai.core.http StreamResponse)
            (com.openai.models.beta.agents AgentFunctionCallOutputParam
                                            AgentSessionEvent
+                                           AgentSessionEnvironmentResetEvent
                                            AgentSessionInputParam
                                            AgentSessionInputParam$AgentSessionInputToolResult
                                            AgentSessionTurnOutputTextDeltaEvent)
@@ -133,4 +134,34 @@
         (is @closed?)
         (is (= {:openai/error :missing-key :key :session-id}
                (error-data #(stream client nil identity)))))
+      (is false "openai.beta.agents.sessions.events/stream is not implemented"))))
+
+(deftest streams-session-environment-reset-events
+  (let [stream (implementation-var 'openai.beta.agents.sessions.events/stream)]
+    (if stream
+      (let [event (AgentSessionEvent/ofEnvironmentReset
+                   (-> (AgentSessionEnvironmentResetEvent/builder)
+                       (.environmentId "env_1")
+                       (.eventId "event_2")
+                       (.resetCount 3)
+                       (.sessionId "sess_1")
+                       (.turnId (java.util.Optional/empty))
+                       (.build)))
+            received (atom [])
+            ^java.util.ArrayList streamed-events (java.util.ArrayList.)
+            _ (.add streamed-events event)
+            response (proxy [StreamResponse] []
+                       (stream [] (.stream streamed-events))
+                       (close [] nil))
+            event-service (proxy [EventService] []
+                            (streamStreaming [_] response))]
+        (is (nil? (stream (client-for event-service) "sess_1"
+                          #(swap! received conj %))))
+        (is (= [{:environment-id "env_1"
+                 :event-id "event_2"
+                 :reset-count 3
+                 :session-id "sess_1"
+                 :turn-id nil
+                 :type :agent.session.environment.reset}]
+               @received)))
       (is false "openai.beta.agents.sessions.events/stream is not implemented"))))

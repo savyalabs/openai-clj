@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.32.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.33.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.32.0"]
+[net.clojars.savya/openai-clj "0.33.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.66.1](https://github.com/openai/openai-java/releases/tag/v4.66.1).
+Tracks [`com.openai/openai-java` 4.67.0](https://github.com/openai/openai-java/releases/tag/v4.67.0).
 
 ## Providers
 
@@ -296,6 +296,9 @@ turns against an agent, subagents spawned within a session, sandboxed
 
 ;; Session-level events and artifacts
 (events/create client "sess_..." {...})
+;; Stream callbacks receive maps such as {:type :agent.session.environment.reset
+;;                                       :event-id "event_..." :environment-id "env_..."
+;;                                       :reset-count 1 :turn-id nil}
 (artifacts/list client "sess_...")
 (artifacts/content client "sess_..." "artifact_...")
 

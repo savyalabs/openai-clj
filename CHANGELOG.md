@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-09-22
+
+### Changed
+
+- Bump `com.openai/openai-java` (and `openai-java-bedrock`) to 4.67.0.
+
+### Added
+
+- Support the `agent.session.environment.reset` session stream event through
+  the existing `openai.beta.agents.sessions.events/stream` mapping, including
+  its event ID, environment ID, reset count, and nullable turn ID.
+
 ## [0.32.0] - 2026-09-21
 
 ### Changed
