@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.33.3] - 2026-09-24
+
+### Changed
+
+- Bump `com.openai/openai-java` (and `openai-java-bedrock`) to 4.69.1.
+
 ## [0.33.2] - 2026-09-23
 
 ### Changed
