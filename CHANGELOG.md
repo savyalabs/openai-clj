@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-10-03
+
+### Changed
+
+- Bump `com.openai/openai-java` and `openai-java-bedrock` to 4.75.1.
+
+### Added
+
+- Add GCP external storage provider support for create params, configuration
+  maps, and `external-storage-registered` audit-log output.
+- Add `:original` image detail for Chat Completions content parts.
+
 ## [0.36.0] - 2026-09-30
 
 ### Changed

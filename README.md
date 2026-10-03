@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.36.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.37.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.36.0"]
+[net.clojars.savya/openai-clj "0.37.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.73.0](https://github.com/openai/openai-java/releases/tag/v4.73.0).
+Tracks [`com.openai/openai-java` 4.75.1](https://github.com/openai/openai-java/releases/tag/v4.75.1).
 
 ## Providers
 
@@ -484,6 +484,9 @@ wrapped. The SDK's 4.70.0 WebSocket connection, transcript grouping, and
 response-accumulator helper classes likewise remain transport/helper surface;
 `openai.realtime` continues to provide this library's normalized WebSocket
 transport.
+The SDK's 4.75 agent helpers for turn-result collection and typed final output,
+artifact downloads, environment file preparation, and the function-tool helper
+are not wrapped either.
 
 ## Running tests
 

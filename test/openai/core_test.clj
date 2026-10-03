@@ -20,6 +20,7 @@
                                                ChatCompletionChunk$Choice$Delta$ToolCall$Type
                                                ChatCompletionChunk$Choice$FinishReason
                                                ChatCompletionContentPart
+                                               ChatCompletionContentPartImage$ImageUrl$Detail
                                                ChatCompletionCreateParams
                                                ChatCompletionMessage
                                                ChatCompletionMessageFunctionToolCall
@@ -2103,6 +2104,22 @@
     (is (= "high" (-> image-part .imageUrl .detail opt .asString)))
     (is (= "AAAA" (-> audio-part .inputAudio .data)))
     (is (= "wav" (-> audio-part .inputAudio .format .asString)))))
+
+(deftest translates-chat-image-original-detail
+  (let [image-part (-> (chat-params {:model "gpt-4o-mini"
+                                     :messages [{:role :user
+                                                 :content [{:type :image
+                                                            :image-url "https://example.test/image.png"
+                                                            :detail :original}]}]})
+                       .messages
+                       first
+                       .asUser
+                       .content
+                       .asArrayOfContentParts
+                       first
+                       .asImageUrl)]
+    (is (= ChatCompletionContentPartImage$ImageUrl$Detail/ORIGINAL
+           (opt (-> image-part .imageUrl .detail))))))
 
 (deftest translates-chat-scalar-options
   (let [p (chat-params {:model "gpt-4o-mini"

@@ -5,7 +5,7 @@
             [openai.impl :as impl])
   (:import (com.openai.models.admin.organization.adminapikeys AdminApiKeyCreateParams)
            (com.openai.models.admin.organization.auditlogs AuditLogListParams AuditLogListParams$EventType AuditLogListResponse AuditLogListResponse$Builder AuditLogListResponse$ExternalStorageRegistered AuditLogListResponse$Type)
-           (com.openai.models.admin.organization.externalstorage ExternalStorageConfiguration ExternalStorageCreateParams ExternalStorageDeleteParams ExternalStorageListParams ExternalStorageListParams$Order ExternalStorageRetrieveParams ExternalStorageValidateParams)
+           (com.openai.models.admin.organization.externalstorage ExternalStorageConfiguration ExternalStorageConfiguration$Status ExternalStorageCreateParams ExternalStorageDeleteParams ExternalStorageListParams ExternalStorageListParams$Order ExternalStorageRetrieveParams ExternalStorageValidateParams GcpExternalStorageProvider)
            (com.openai.models.admin.organization.groups Group Group$Builder GroupCreateParams)
            (com.openai.models.admin.organization.groups.users UserCreateParams)
            (com.openai.models.admin.organization.invites Invite Invite$Builder Invite$Role Invite$Status)
@@ -325,6 +325,27 @@
                                (.get (.order list)))))
     (is (= "proj_1" (.get (.projectId list))))))
 
+(deftest builds-external-storage-gcp-provider-params
+  (let [^ExternalStorageCreateParams params
+        (#'admin/->external-storage-create-params
+         {:project-id "proj_1"
+          :provider {:type :gcp
+                     :audience "https://api.openai.com"
+                     :bucket "exports"
+                     :region "us-central1"
+                     :workload-identity-pool-id "pool_1"
+                     :workload-identity-project-number "123456789"
+                     :workload-identity-provider-id "provider_1"}})
+        provider (.asGcp (.provider params))
+        provider-map (impl/sdk-object->clj provider)]
+    (is (.isGcp (.provider params)))
+    (is (= "https://api.openai.com" (:audience provider-map)))
+    (is (= "exports" (.bucket provider)))
+    (is (= "us-central1" (:region provider-map)))
+    (is (= "pool_1" (.workloadIdentityPoolId provider)))
+    (is (= "123456789" (.workloadIdentityProjectNumber provider)))
+    (is (= "provider_1" (.workloadIdentityProviderId provider)))))
+
 (deftest converts-external-storage-configuration
   (let [configuration (impl/sdk-input-object
                        {:id "storage_1" :created-at 123 :geography "us"
@@ -338,6 +359,34 @@
                        :handler {:name "audit" :enabled true}}
             :status :active}
            (#'admin/external-storage->map configuration)))))
+
+(deftest converts-gcp-external-storage-configuration
+  (let [provider (-> (GcpExternalStorageProvider/builder)
+                     (.audience "https://api.openai.com")
+                     (.bucket "exports")
+                     (.region "us-central1")
+                     (.type (com.openai.core.JsonValue/from "gcp"))
+                     (.workloadIdentityPoolId "pool_1")
+                     (.workloadIdentityProjectNumber "123456789")
+                     (.workloadIdentityProviderId "provider_1")
+                     (.build))
+        configuration (-> (ExternalStorageConfiguration/builder)
+                          (.id "storage_1")
+                          (.createdAt 123)
+                          (.geography "us")
+                          (.object_ (com.openai.core.JsonValue/from "external_storage"))
+                          (.projectId "proj_1")
+                          (.provider provider)
+                          (.status (ExternalStorageConfiguration$Status/of "active"))
+                          (.build))]
+    (is (= {:type :gcp
+            :audience "https://api.openai.com"
+            :bucket "exports"
+            :region "us-central1"
+            :workload-identity-pool-id "pool_1"
+            :workload-identity-project-number "123456789"
+            :workload-identity-provider-id "provider_1"}
+           (:provider (#'admin/external-storage->map configuration))))))
 
 (deftest converts-external-storage-registered-audit-log-provider-handler
   (let [^AuditLogListResponse$ExternalStorageRegistered registered
@@ -364,3 +413,37 @@
                                :subscription-id "sub" :tenant-id "tenant"
                                :handler {:name "audit" :enabled true}}}}}
            (#'admin/audit-log->map event)))))
+
+(deftest converts-gcp-external-storage-registered-audit-log-provider
+  (let [provider (-> (GcpExternalStorageProvider/builder)
+                     (.audience "https://api.openai.com")
+                     (.bucket "exports")
+                     (.region "us-central1")
+                     (.type (com.openai.core.JsonValue/from "gcp"))
+                     (.workloadIdentityPoolId "pool_1")
+                     (.workloadIdentityProjectNumber "123456789")
+                     (.workloadIdentityProviderId "provider_1")
+                     (.build))
+        data (-> (com.openai.models.admin.organization.auditlogs.AuditLogListResponse$ExternalStorageRegistered$Data/builder)
+                 (.geography "us")
+                 (.provider provider)
+                 (.build))
+        registered (-> (AuditLogListResponse$ExternalStorageRegistered/builder)
+                       (.id "storage_1")
+                       (.data data)
+                       (.build))
+        event (-> (AuditLogListResponse/builder)
+                  (.id "log_1")
+                  (.effectiveAt 123)
+                  (.type (AuditLogListResponse$Type/of "external_storage_registered"))
+                  (.externalStorageRegistered registered)
+                  (.build))]
+    (is (= {:type :gcp
+            :audience "https://api.openai.com"
+            :bucket "exports"
+            :region "us-central1"
+            :workload-identity-pool-id "pool_1"
+            :workload-identity-project-number "123456789"
+            :workload-identity-provider-id "provider_1"}
+           (get-in (#'admin/audit-log->map event)
+                   [:external-storage-registered :data :provider])))))
