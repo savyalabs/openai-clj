@@ -3,7 +3,7 @@
   (:require [openai.impl :as impl])
   (:import (com.openai.client OpenAIClient)
            (com.openai.core JsonField)
-           (com.openai.models.admin.organization.projects.apikeys ApiKeyDeleteParams ApiKeyDeleteResponse ApiKeyListPage ApiKeyListParams ApiKeyListParams$OwnerProjectAccess ApiKeyRetrieveParams ProjectApiKey ProjectApiKey$Owner ProjectApiKey$Owner$ServiceAccount ProjectApiKey$Owner$User)
+           (com.openai.models.admin.organization.projects.apikeys ApiKeyDeleteParams ApiKeyDeleteResponse ApiKeyListPage ApiKeyListParams ApiKeyListParams$OwnerProjectAccess ApiKeyRetrieveParams ApiKeyUpdateParams ProjectApiKey ProjectApiKey$Owner ProjectApiKey$Owner$ServiceAccount ProjectApiKey$Owner$User)
            (com.openai.models.admin.organization.projects.certificates CertificateActivatePage CertificateActivateParams CertificateActivateResponse CertificateActivateResponse$CertificateDetails CertificateDeactivatePage CertificateDeactivateParams CertificateDeactivateResponse CertificateDeactivateResponse$CertificateDetails CertificateListPage CertificateListParams CertificateListParams$Order CertificateListResponse CertificateListResponse$CertificateDetails)
            (com.openai.models.admin.organization.projects.dataretention DataRetentionRetrieveParams DataRetentionUpdateParams DataRetentionUpdateParams$RetentionType ProjectDataRetention)
            (com.openai.models.admin.organization.projects.groups GroupCreateParams GroupDeleteParams GroupDeleteResponse GroupListPage GroupListParams GroupListParams$Order GroupRetrieveParams GroupRetrieveParams$GroupType ProjectGroup)
@@ -34,6 +34,17 @@
     (when limit (.limit b (long limit)))
     (when owner-project-access (.ownerProjectAccess b (ApiKeyListParams$OwnerProjectAccess/of (impl/enum-name owner-project-access))))
     (.build b)))
+
+(defn- ->api-key-update-params ^ApiKeyUpdateParams
+  [^String project-id ^String key-id {:keys [expires-in-seconds]}]
+  (when-not project-id (impl/missing-key! :project-id))
+  (when-not key-id (impl/missing-key! :key-id))
+  (when-not (some? expires-in-seconds) (impl/missing-key! :expires-in-seconds))
+  (-> (ApiKeyUpdateParams/builder)
+      (.projectId project-id)
+      (.apiKeyId key-id)
+      (.expiresInSeconds (long expires-in-seconds))
+      (.build)))
 
 (defn- api-key-service-account->map [^ProjectApiKey$Owner$ServiceAccount a]
   {:id (.id a) :created-at (.createdAt a) :name (.name a) :role (.role a)})
@@ -70,6 +81,12 @@
      (let [^ApiKeyService svc (.apiKeys (projects-service client))
            ^ApiKeyListPage page (.list svc (->api-key-list-params project-id opts))]
        (mapv project-api-key->map (impl/all-pages page))))))
+
+(defn api-key-update [^OpenAIClient client ^String project-id ^String key-id opts]
+  (impl/with-api-errors
+    (let [^ApiKeyService svc (.apiKeys (projects-service client))]
+      (project-api-key->map
+       (.update svc (->api-key-update-params project-id key-id opts))))))
 
 (defn api-key-delete [^OpenAIClient client ^String project-id ^String key-id]
   (impl/with-api-errors

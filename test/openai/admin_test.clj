@@ -5,12 +5,12 @@
             [openai.impl :as impl])
   (:import (com.openai.models.admin.organization.adminapikeys AdminApiKeyCreateParams)
            (com.openai.models.admin.organization.auditlogs AuditLogListParams AuditLogListParams$EventType AuditLogListResponse AuditLogListResponse$Builder AuditLogListResponse$ExternalStorageRegistered AuditLogListResponse$Type)
-           (com.openai.models.admin.organization.externalstorage ExternalStorageConfiguration ExternalStorageConfiguration$Provider$Oci ExternalStorageConfiguration$Status ExternalStorageCreateParams ExternalStorageDeleteParams ExternalStorageListParams ExternalStorageListParams$Order ExternalStorageRetrieveParams ExternalStorageValidateParams GcpExternalStorageProvider)
+           (com.openai.models.admin.organization.externalstorage ExternalStorageConfiguration ExternalStorageConfiguration$Status ExternalStorageCreateParams ExternalStorageDeleteParams ExternalStorageListParams ExternalStorageListParams$Order ExternalStorageRetrieveParams ExternalStorageValidateParams GcpExternalStorageProvider OciExternalStorageProvider)
            (com.openai.models.admin.organization.groups Group Group$Builder GroupCreateParams)
            (com.openai.models.admin.organization.groups.users UserCreateParams)
            (com.openai.models.admin.organization.invites Invite Invite$Builder Invite$Role Invite$Status)
            (com.openai.models.admin.organization.projects Project ProjectCreateParams)
-           (com.openai.models.admin.organization.projects.apikeys ApiKeyListParams ApiKeyListParams$OwnerProjectAccess ProjectApiKey ProjectApiKey$Owner ProjectApiKey$OwnerProjectAccess)
+           (com.openai.models.admin.organization.projects.apikeys ApiKeyListParams ApiKeyListParams$OwnerProjectAccess ApiKeyUpdateParams ProjectApiKey ProjectApiKey$Owner ProjectApiKey$OwnerProjectAccess)
            (com.openai.models.admin.organization.projects.ratelimits ProjectRateLimit RateLimitUpdateRateLimitParams)
            (com.openai.models.admin.organization.projects.serviceaccounts ProjectServiceAccount ServiceAccountCreateParams ServiceAccountCreateResponse ServiceAccountCreateResponse$ApiKey ServiceAccountCreateResponse$Role)
            (com.openai.models.admin.organization.projects.serviceaccounts.apikeys ApiKeyCreateResponse)
@@ -18,8 +18,10 @@
            (com.openai.models.admin.organization.projects.spendlimit ProjectSpendLimit ProjectSpendLimitDeleted ProjectSpendLimit$Currency ProjectSpendLimit$Interval ProjectSpendLimit$Enforcement ProjectSpendLimit$Enforcement$Status)
            (com.openai.models.admin.organization.spendlimit OrganizationSpendLimit OrganizationSpendLimitDeleted OrganizationSpendLimit$Currency OrganizationSpendLimit$Interval OrganizationSpendLimit$Enforcement OrganizationSpendLimit$Enforcement$Status)
            (com.openai.models.admin.organization.spendalerts OrganizationSpendAlert OrganizationSpendAlert$Currency OrganizationSpendAlert$Interval OrganizationSpendAlert$NotificationChannel)
-           (com.openai.models.admin.organization.usage UsageCompletionsParams UsageCostsParams
+           (com.openai.models.admin.organization.usage UsageCompletionsParams UsageCostsParams UsageDecisionsParams
                                                       UsageWebSearchCallsParams
+                                                      UsageDecisionsResponse$Data
+                                                      UsageDecisionsResponse$Data$Result
                                                       UsageCompletionsResponse$Data
                                                       UsageCompletionsResponse$Data$Result$OrganizationUsageCompletionsResult
                                                       UsageCompletionsResponse$Data$Result$OrganizationUsageCompletionsResult$ApiSource
@@ -118,6 +120,42 @@
     (is (= "1d" (str (impl/opt-get (.bucketWidth p)))))
     (is (= ["model"] (mapv str (impl/opt-get (.groupBy p)))))
     (is (true? (impl/opt-get (.batch p))))))
+
+(deftest usage-decisions-builds-params
+  (let [f (some-> (ns-resolve 'openai.admin '->usage-decisions-params) deref)
+        ^UsageDecisionsParams p (f {:start-time 100 :end-time 200 :bucket-width :day
+                                    :limit 10 :page "page_1" :batch true
+                                    :api-key-ids ["key_1"] :models ["gpt-5"]
+                                    :project-ids ["proj_1"] :user-ids ["user_1"]
+                                    :group-by [:api-key-id :service-tier]})]
+    (is (= 100 (.startTime p)))
+    (is (= 200 (impl/opt-get (.endTime p))))
+    (is (= "1d" (str (impl/opt-get (.bucketWidth p)))))
+    (is (= 10 (impl/opt-get (.limit p))))
+    (is (= "page_1" (impl/opt-get (.page p))))
+    (is (true? (impl/opt-get (.batch p))))
+    (is (= ["key_1"] (impl/opt-get (.apiKeyIds p))))
+    (is (= ["gpt-5"] (impl/opt-get (.models p))))
+    (is (= ["proj_1"] (impl/opt-get (.projectIds p))))
+    (is (= ["user_1"] (impl/opt-get (.userIds p))))
+    (is (= ["api_key_id" "service_tier"]
+           (mapv str (impl/opt-get (.groupBy p)))))))
+
+(deftest usage-decisions-requires-start-time
+  (let [f (some-> (ns-resolve 'openai.admin '->usage-decisions-params) deref)]
+    (is (thrown? clojure.lang.ExceptionInfo (f {})))))
+
+(deftest usage-decisions-round-trips
+  (let [result (-> (UsageDecisionsResponse$Data$Result/builder)
+                   (.inputTokens 10) (.outputTokens 4) (.numModelRequests 2)
+                   (.serviceTier "priority") (.build))
+        bucket (-> (UsageDecisionsResponse$Data/builder) (.startTime 100) (.endTime 200)
+                   (.addResult result) (.build))
+        f (some-> (ns-resolve 'openai.admin 'usage-decisions-bucket->map) deref)]
+    (is (= {:start-time 100 :end-time 200
+            :results [{:input-tokens 10 :output-tokens 4 :num-model-requests 2
+                       :service-tier "priority"}]}
+           (f bucket)))))
 
 (deftest builds-usage-costs-params-with-line-items
   (let [^UsageCostsParams p (#'admin/->usage-costs-params
@@ -222,6 +260,31 @@
         (is (= expected (impl/opt-get (.ownerProjectAccess p))))))
     (let [^ApiKeyListParams p (f "proj_1" {})]
       (is (false? (.isPresent (.ownerProjectAccess p)))))))
+
+(deftest project-api-key-update-builds-params
+  (let [f (some-> (ns-resolve 'openai.admin.projects '->api-key-update-params) deref)
+        ^ApiKeyUpdateParams p (f "proj_1" "key_1" {:expires-in-seconds 3600})]
+    (is (= "proj_1" (.projectId p)))
+    (is (= "key_1" (impl/opt-get (.apiKeyId p))))
+    (is (= 3600 (.expiresInSeconds p)))))
+
+(deftest project-api-key-update-requires-fields
+  (let [f (some-> (ns-resolve 'openai.admin.projects '->api-key-update-params) deref)]
+    (is (thrown? clojure.lang.ExceptionInfo (f nil "key_1" {:expires-in-seconds 3600})))
+    (is (thrown? clojure.lang.ExceptionInfo (f "proj_1" nil {:expires-in-seconds 3600})))
+    (is (thrown? clojure.lang.ExceptionInfo (f "proj_1" "key_1" {})))))
+
+(deftest project-api-key-update-round-trips
+  (let [missing (com.openai.core.JsonField/ofNullable nil)
+        key (-> (ProjectApiKey/builder) (.id "key_1") (.createdAt 123)
+                (.name "Deploy") (.owner (-> (ProjectApiKey$Owner/builder) (.build)))
+                (.lastUsedAt (java.util.Optional/empty))
+                (.ownerProjectAccess ^com.openai.core.JsonField missing)
+                (.redactedValue "sk-...abc") (.build))
+        f (some-> (ns-resolve 'openai.admin.projects 'project-api-key->map) deref)]
+    (is (= {:id "key_1" :created-at 123 :name "Deploy" :owner {}
+            :redacted-value "sk-...abc"}
+           (f key)))))
 
 (deftest converts-project-api-key-present-only
   (when-let [f (some-> (ns-resolve 'openai.admin.projects 'project-api-key->map) deref)]
@@ -457,7 +520,7 @@
           :provider {:type :oci :bucket "exports" :region "us-ashburn-1"
                      :tenancy-ocid "ocid1.tenancy.oc1..example"}})
         create-provider (.asOci (.provider params))
-        configuration-provider (-> (ExternalStorageConfiguration$Provider$Oci/builder)
+        configuration-provider (-> (OciExternalStorageProvider/builder)
                                    (.bucket "exports") (.region "us-ashburn-1")
                                    (.tenancyOcid "ocid1.tenancy.oc1..example")
                                    (.type (com.openai.core.JsonValue/from "oci"))
@@ -537,7 +600,7 @@
                    [:external-storage-registered :data :provider])))))
 
 (deftest audit-log-external-storage-oci-provider-converts
-  (let [provider (-> (com.openai.models.admin.organization.auditlogs.AuditLogListResponse$ExternalStorageRegistered$Data$Provider$Oci/builder)
+  (let [provider (-> (OciExternalStorageProvider/builder)
                      (.bucket "exports") (.region "us-ashburn-1")
                      (.tenancyOcid "ocid1.tenancy.oc1..example")
                      (.type (com.openai.core.JsonValue/from "oci"))

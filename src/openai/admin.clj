@@ -688,6 +688,61 @@
               next-page (impl/opt-get (.nextPage response))]
           (if next-page (recur (assoc opts :page next-page) result) result))))))
 
+(defn- ->usage-decisions-params ^com.openai.models.admin.organization.usage.UsageDecisionsParams
+  [{:keys [start-time end-time bucket-width group-by limit page api-key-ids models project-ids user-ids batch]}]
+  (when-not (some? start-time) (impl/missing-key! :start-time))
+  (let [^com.openai.models.admin.organization.usage.UsageDecisionsParams$Builder b
+        (com.openai.models.admin.organization.usage.UsageDecisionsParams/builder)]
+    (.startTime b (long start-time))
+    (when end-time (.endTime b (long end-time)))
+    (when bucket-width (.bucketWidth b (com.openai.models.admin.organization.usage.UsageDecisionsParams$BucketWidth/of (usage-bucket-width bucket-width))))
+    (when group-by (.groupBy b ^java.util.List (mapv #(com.openai.models.admin.organization.usage.UsageDecisionsParams$GroupBy/of (impl/enum-name %)) group-by)))
+    (when limit (.limit b (long limit))) (when page (.page b ^String page))
+    (when (some? batch) (.batch b (boolean batch)))
+    (when api-key-ids (.apiKeyIds b ^java.util.List api-key-ids))
+    (when models (.models b ^java.util.List models))
+    (when project-ids (.projectIds b ^java.util.List project-ids))
+    (when user-ids (.userIds b ^java.util.List user-ids))
+    (.build b)))
+(defn- usage-decisions-result->map [^com.openai.models.admin.organization.usage.UsageDecisionsResponse$Data$Result r]
+  (cond-> {:input-tokens (.inputTokens r) :output-tokens (.outputTokens r)
+           :num-model-requests (.numModelRequests r)}
+    (.isPresent (.apiKeyId r)) (assoc :api-key-id (impl/opt-get (.apiKeyId r)))
+    (.isPresent (.apiSource r)) (assoc :api-source (impl/->keyword (.asString ^com.openai.models.admin.organization.usage.UsageDecisionsResponse$Data$Result$ApiSource (impl/opt-get (.apiSource r)))))
+    (.isPresent (.batch r)) (assoc :batch (impl/opt-get (.batch r)))
+    (.isPresent (.inputAudioTokens r)) (assoc :input-audio-tokens (impl/opt-get (.inputAudioTokens r)))
+    (.isPresent (.inputCacheWrite12hTokens r)) (assoc :input-cache-write-12h-tokens (impl/opt-get (.inputCacheWrite12hTokens r)))
+    (.isPresent (.inputCacheWriteTokens r)) (assoc :input-cache-write-tokens (impl/opt-get (.inputCacheWriteTokens r)))
+    (.isPresent (.inputCachedAudioTokens r)) (assoc :input-cached-audio-tokens (impl/opt-get (.inputCachedAudioTokens r)))
+    (.isPresent (.inputCachedImageTokens r)) (assoc :input-cached-image-tokens (impl/opt-get (.inputCachedImageTokens r)))
+    (.isPresent (.inputCachedTextTokens r)) (assoc :input-cached-text-tokens (impl/opt-get (.inputCachedTextTokens r)))
+    (.isPresent (.inputCachedTokens r)) (assoc :input-cached-tokens (impl/opt-get (.inputCachedTokens r)))
+    (.isPresent (.inputImageTokens r)) (assoc :input-image-tokens (impl/opt-get (.inputImageTokens r)))
+    (.isPresent (.inputTextTokens r)) (assoc :input-text-tokens (impl/opt-get (.inputTextTokens r)))
+    (.isPresent (.inputUncachedTokens r)) (assoc :input-uncached-tokens (impl/opt-get (.inputUncachedTokens r)))
+    (.isPresent (.model r)) (assoc :model (impl/opt-get (.model r)))
+    (.isPresent (.outputAudioTokens r)) (assoc :output-audio-tokens (impl/opt-get (.outputAudioTokens r)))
+    (.isPresent (.outputImageTokens r)) (assoc :output-image-tokens (impl/opt-get (.outputImageTokens r)))
+    (.isPresent (.outputTextTokens r)) (assoc :output-text-tokens (impl/opt-get (.outputTextTokens r)))
+    (.isPresent (.projectId r)) (assoc :project-id (impl/opt-get (.projectId r)))
+    (.isPresent (.serviceTier r)) (assoc :service-tier (impl/opt-get (.serviceTier r)))
+    (.isPresent (.userId r)) (assoc :user-id (impl/opt-get (.userId r)))))
+(defn- usage-decisions-bucket->map [^com.openai.models.admin.organization.usage.UsageDecisionsResponse$Data bucket]
+  {:start-time (.startTime bucket) :end-time (.endTime bucket)
+   :results (mapv usage-decisions-result->map (.results bucket))})
+(defn usage-decisions
+  "Return organization Decisions usage buckets. Opts accepts `:start-time`,
+  `:end-time`, `:bucket-width`, `:group-by`, `:limit`, `:page`, `:batch`,
+  `:api-key-ids`, `:models`, `:project-ids`, and `:user-ids`."
+  [^OpenAIClient client opts]
+  (impl/with-api-errors
+    (let [^UsageService s (.usage (organization client))]
+      (loop [request opts, result []]
+        (let [^com.openai.models.admin.organization.usage.UsageDecisionsResponse response (.decisions s (->usage-decisions-params request))
+              result (into result (map usage-decisions-bucket->map (.data response)))
+              next-page (impl/opt-get (.nextPage response))]
+          (if next-page (recur (assoc opts :page next-page) result) result))))))
+
 (defn- ->usage-embeddings-params ^com.openai.models.admin.organization.usage.UsageEmbeddingsParams [{:keys [start-time end-time bucket-width group-by limit page api-key-ids models project-ids user-ids]}]
   (when-not (some? start-time) (impl/missing-key! :start-time))
   (let [^com.openai.models.admin.organization.usage.UsageEmbeddingsParams$Builder b (com.openai.models.admin.organization.usage.UsageEmbeddingsParams/builder)]
