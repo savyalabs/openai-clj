@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-10-13
+
+### Added
+
+- Add organization Decisions usage reporting and project API key expiry updates.
+- Support the Live `:shida` voice through the existing generic session maps.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.81.0.
+- Continue normalizing OCI external-storage providers after their SDK response
+  types moved to the shared provider class.
+
 ## [0.41.0] - 2026-10-09
 
 ### Added

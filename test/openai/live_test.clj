@@ -8,6 +8,7 @@
                                    LiveCreateResponse
                                    LiveCreateResponse$Session
                                    LiveCreateResponse$Transport
+                                   MediaSessionConfig
                                    MediaSessionForkConfig)
            (com.openai.models.live.sessions SessionAcceptParams
                                              SessionHangupParams
@@ -120,6 +121,13 @@
           (is (= {:openai/error :missing-key :key :model}
                  (error-data #(session-accept client "sess_1" {}))))))
       (is false "openai.live/session-accept is not implemented"))))
+
+(deftest live-voice-shida
+  (let [^MediaSessionConfig session
+        (#'live/->media-session {:model :gpt-live-1
+                                 :audio {:output {:voice :shida}}})]
+    (is (= {:output {:voice "shida"}}
+           (-> session ._additionalProperties (get "audio") json-value->clj)))))
 
 (deftest hangs-up-live-session
   (let [build-params (ns-resolve 'openai.live '->session-hangup-params)

@@ -260,7 +260,7 @@
 (defn create-voice
   "Create a custom voice from an audio sample and return a normalized response map.
 
-   As of SDK 4.80.0, only audio-sample voice creation is supported."
+   As of SDK 4.81.0, only audio-sample voice creation is supported."
   [^OpenAIClient client req]
   (impl/with-api-errors
     (let [^AudioService audio (.audio client)

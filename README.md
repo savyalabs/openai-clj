@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.41.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.42.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.41.0"]
+[net.clojars.savya/openai-clj "0.42.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.80.0](https://github.com/openai/openai-java/releases/tag/v4.80.0).
+Tracks [`com.openai/openai-java` 4.81.0](https://github.com/openai/openai-java/releases/tag/v4.81.0).
 
 ## Providers
 
@@ -451,6 +451,8 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
 (webhooks/test-webhook-endpoint client "we_..." {:event-type :response-completed})
 (webhooks/list-event-types client)
 (admin/project-list admin-client {:limit 20})
+(admin/usage-decisions admin-client {:start-time 1728000000
+                                     :group-by [:model :project-id]})
 (admin/external-storage-list admin-client {:project-id "proj_..."})
 (admin/external-storage-create admin-client
                                {:project-id "proj_..."
@@ -458,6 +460,8 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
                                            :region "us-ashburn-1"
                                            :tenancy-ocid "ocid1.tenancy.oc1..example"}})
 (admin-projects/service-account-list admin-client "proj_...")
+(admin-projects/api-key-update admin-client "proj_..." "key_..."
+                               {:expires-in-seconds 3600})
 ```
 
 Webhook endpoint management is available from `openai.webhooks`: `create`,
@@ -476,8 +480,10 @@ helpers. `openai.live` contains WebRTC session creation and lifecycle helpers.
 the beta multi-agent orchestration platform - see "Beta Agents API" above.
 `openai.content-provenance-checks` contains Content Provenance Checks.
 `openai.admin` includes organization external-storage configuration create,
-retrieve, list, delete, and validation operations. `openai.safety` includes
-safety alert and safety case retrieval.
+retrieve, list, delete, and validation operations, plus organization usage
+reporting including `usage-decisions`. `openai.admin.projects` includes project
+API key update via `api-key-update`. `openai.safety` includes safety alert and
+safety case retrieval.
 `openai.graders` maps to the stable grader-model service. Model names are passed
 through as strings, including `"gpt-6-astra"` and `"gpt-6.1-sol"`. The service exposes
 no operations in SDK 4.62.0.
