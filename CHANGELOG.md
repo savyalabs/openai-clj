@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-10-25
+
+### Added
+
+- Add custom voice-consent create, retrieve, list, update, and delete wrappers,
+  plus custom-voice deletion.
+- Restore prompt-based custom voice creation and image `:safety-identifier`
+  request and response support.
+- Add project regional-processing fields, including `:residency`.
+- Preserve Responses error `:param` and `:type` fields.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.91.0.
+- Preserve Decisions request maps across the SDK's role-specific input-message
+  union change and add 4.91 tool-history input variants.
+
 ## [0.42.0] - 2026-10-13
 
 ### Added

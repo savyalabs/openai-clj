@@ -18,8 +18,16 @@
                                         DecisionCreateParams$Question$Score$Level
                                         DecisionCreateParams$Question$Score$Level$Builder
                                         DecisionInputImage DecisionInputImage$Builder
-                                        DecisionInputImage$Detail DecisionInputMessage
-                                        DecisionInputMessage$Builder DecisionInputMessage$Type
+                                        DecisionInputImage$Detail DecisionInputItem
+                                        DecisionInputMessage
+                                        DecisionInputMessage$Assistant
+                                        DecisionInputMessage$Assistant$Builder
+                                        DecisionInputMessage$Developer
+                                        DecisionInputMessage$Developer$Builder
+                                        DecisionInputMessage$System
+                                        DecisionInputMessage$System$Builder
+                                        DecisionInputMessage$User
+                                        DecisionInputMessage$User$Builder
                                         DecisionInputPart DecisionInputText DecisionInputText$Builder)
            (com.openai.services.blocking DecisionService)))
 
@@ -41,14 +49,59 @@
     (throw (ex-info "Unsupported decision input part"
                     {:openai/error :unsupported-input-part :type type}))))
 
-(defn- ->input-message ^DecisionInputMessage [{:keys [role content]}]
-  (let [^DecisionInputMessage$Builder b (DecisionInputMessage/builder)]
+(defn- ->user-message ^DecisionInputMessage$User [{:keys [role content]}]
+  (let [^DecisionInputMessage$User$Builder b (DecisionInputMessage$User/builder)]
     (.role b (JsonValue/from (impl/enum-name role)))
-    (.type b DecisionInputMessage$Type/MESSAGE)
     (if (string? content)
       (.content b ^String content)
       (.contentOfParts b ^java.util.List (mapv ->input-part content)))
     (.build b)))
+
+(defn- ->developer-message ^DecisionInputMessage$Developer [{:keys [role content]}]
+  (let [^DecisionInputMessage$Developer$Builder b (DecisionInputMessage$Developer/builder)]
+    (.role b (JsonValue/from (impl/enum-name role)))
+    (if (string? content)
+      (.content b ^String content)
+      (.contentOfParts b ^java.util.List
+                       (mapv #(let [^DecisionInputText$Builder text (DecisionInputText/builder)]
+                                (.text text ^String (:text %))
+                                (.type text (JsonValue/from "input_text"))
+                                (.build text))
+                             content)))
+    (.build b)))
+
+(defn- ->system-message ^DecisionInputMessage$System [{:keys [role content]}]
+  (let [^DecisionInputMessage$System$Builder b (DecisionInputMessage$System/builder)]
+    (.role b (JsonValue/from (impl/enum-name role)))
+    (if (string? content)
+      (.content b ^String content)
+      (.contentOfParts b ^java.util.List
+                       (mapv #(let [^DecisionInputText$Builder text (DecisionInputText/builder)]
+                                (.text text ^String (:text %))
+                                (.type text (JsonValue/from "input_text"))
+                                (.build text))
+                             content)))
+    (.build b)))
+
+(defn- ->assistant-message ^DecisionInputMessage$Assistant [{:keys [role content]}]
+  (when-not (string? content)
+    (throw (ex-info "Assistant decision input content must be a string"
+                    {:openai/error :unsupported-assistant-content :content content})))
+  (let [^DecisionInputMessage$Assistant$Builder b (DecisionInputMessage$Assistant/builder)]
+    (.role b (JsonValue/from (impl/enum-name role)))
+    (.content b ^String content)
+    (.build b)))
+
+(defn- ->input-message ^DecisionInputItem [{:keys [role] :as message}]
+  (if-not role
+    (impl/sdk-input-object message DecisionInputItem)
+    (case role
+      :user (DecisionInputItem/ofDecisionInputMessage (DecisionInputMessage/ofUser (->user-message message)))
+      :developer (DecisionInputItem/ofDecisionInputMessage (DecisionInputMessage/ofDeveloper (->developer-message message)))
+      :system (DecisionInputItem/ofDecisionInputMessage (DecisionInputMessage/ofSystem (->system-message message)))
+      :assistant (DecisionInputItem/ofDecisionInputMessage (DecisionInputMessage/ofAssistant (->assistant-message message)))
+      (throw (ex-info "Unsupported decision input role"
+                      {:openai/error :unsupported-input-role :role role})))))
 
 (defn- ->choice-option ^DecisionChoiceOption [{:keys [value description]}]
   (let [^DecisionChoiceOption$Builder b (DecisionChoiceOption/builder)]
@@ -94,7 +147,7 @@
     (.model b ^String model)
     (if (string? input)
       (.input b ^String input)
-      (.inputOfDecisionInputMessages b ^java.util.List (mapv ->input-message input)))
+      (.inputOfDecisionInputItems b ^java.util.List (mapv ->input-message input)))
     (doseq [question questions] (.addQuestion b (->question question)))
     (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
     (.build b)))

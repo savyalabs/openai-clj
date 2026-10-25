@@ -18,11 +18,14 @@
                                                 TranslationCreateParams$ResponseFormat
                                                 TranslationCreateResponse
                                                 TranslationVerbose)
-           (com.openai.models.audio.voices Voice Voice$Type
+           (com.openai.models.audio.voiceconsents VoiceConsent VoiceConsentDeleted
+                                                  VoiceConsentListPage
+                                                  VoiceConsentListPageResponse)
+           (com.openai.models.audio.voices Voice Voice$Type VoiceDeleted
                                           VoiceCreateParams
                                           VoiceCreateParams$Body$AudioSample$Type)
            (com.openai.services.blocking AudioService)
-           (com.openai.services.blocking.audio VoiceService)))
+           (com.openai.services.blocking.audio VoiceConsentService VoiceService)))
 
 (set! *warn-on-reflection* true)
 
@@ -147,10 +150,81 @@
     (is (= {:id "voice_123" :created-at 42 :name "Ada" :object "voice" :type :audio-sample}
            (#'audio/voice->map voice)))))
 
-(deftest rejects-missing-or-invalid-voice-variant
-  (doseq [req [{:type :prompt} {:type :unsupported}]]
+(deftest rejects-invalid-voice-variant
+  (doseq [req [{:type :unsupported}]]
     (let [error (try (voice-params req) nil (catch clojure.lang.ExceptionInfo e e))]
       (is (= :invalid-voice-variant (:openai/error (ex-data error)))))))
+
+(deftest builds-prompt-voice-params
+  (let [p (voice-params {:type :prompt :name "Ada" :prompt "A warm narrator"
+                         :model "gpt-4o-mini-tts" :script-hint "Hello"})
+        body (.asPrompt (.body p))]
+    (is (= "Ada" (.name body)))
+    (is (= "A warm narrator" (.prompt body)))
+    (is (= "gpt-4o-mini-tts" (.asString (opt (.model body)))))
+    (is (= "Hello" (opt (.scriptHint body))))))
+
+(deftest voice-consent-create-builds-params
+  (let [p (#'audio/->voice-consent-params
+           {:recording (.getBytes "consent" "UTF-8")
+            :filename "consent.wav" :language "en" :name "Ada"})]
+    (is (= "en" (.language p)))
+    (is (= "Ada" (.name p)))
+    (is (= [99 111 110 115 101 110 116] (vec (.readAllBytes (.recording p)))))))
+
+(deftest voice-consent-requires-fields
+  (let [error-data (fn [request]
+                     (try
+                       (#'audio/->voice-consent-params request)
+                       nil
+                       (catch clojure.lang.ExceptionInfo e (ex-data e))))]
+    (is (= {:openai/error :missing-key :key :recording}
+           (error-data {:language "en" :name "Ada"})))
+    (is (= {:openai/error :missing-key :key :language}
+           (error-data {:recording (.getBytes "x" "UTF-8") :name "Ada"})))
+    (is (= {:openai/error :missing-key :key :name}
+           (error-data {:recording (.getBytes "x" "UTF-8") :language "en"})))))
+
+(deftest voice-consent-crud-round-trips
+  (let [consent (-> (VoiceConsent/builder) (.id "consent_123") (.createdAt 42)
+                    (.language "en") (.name "Ada") (.object_ (JsonValue/from "voice_consent")) (.build))
+        deleted (-> (VoiceConsentDeleted/builder) (.id "consent_123") (.deleted true)
+                    (.object_ (JsonValue/from "voice_consent")) (.build))
+        response (-> (VoiceConsentListPageResponse/builder) (.addData consent)
+                     (.hasMore false) (.object_ (JsonValue/from "list")) (.build))
+        page (-> (VoiceConsentListPage/builder) (.response response)
+                 (.params (com.openai.models.audio.voiceconsents.VoiceConsentListParams/none))
+                 (.service (proxy [VoiceConsentService] [])) (.build))
+        seen (atom [])
+        service (proxy [VoiceConsentService] []
+                  (create [params] (swap! seen conj [:create params]) consent)
+                  (retrieve [id] (swap! seen conj [:retrieve id]) consent)
+                  (list [_] (swap! seen conj [:list]) page)
+                  (update [params] (swap! seen conj [:update params]) consent)
+                  (delete [id] (swap! seen conj [:delete id]) deleted))
+        audio-service (proxy [AudioService] [] (voiceConsents [] service))
+        client (proxy [OpenAIClient] [] (audio [] audio-service))]
+    (is (= {:id "consent_123" :created-at 42 :language "en" :name "Ada" :object "voice_consent"}
+           (audio/create-voice-consent client {:recording (.getBytes "consent" "UTF-8")
+                                               :language "en" :name "Ada"})))
+    (is (= {:id "consent_123" :created-at 42 :language "en" :name "Ada" :object "voice_consent"}
+           (audio/retrieve-voice-consent client "consent_123")))
+    (is (= [{:id "consent_123" :created-at 42 :language "en" :name "Ada" :object "voice_consent"}]
+           (audio/list-voice-consents client {:after "consent_000" :limit 10})))
+    (is (= {:id "consent_123" :created-at 42 :language "en" :name "Ada" :object "voice_consent"}
+           (audio/update-voice-consent client "consent_123" {:name "Ada Lovelace"})))
+    (is (= {:id "consent_123" :deleted true :object "voice_consent"}
+           (audio/delete-voice-consent client "consent_123")))
+    (is (= [:create :retrieve :list :update :delete] (mapv first @seen)))))
+
+(deftest voice-delete-round-trips
+  (let [deleted (-> (VoiceDeleted/builder) (.id "voice_123") (.deleted true)
+                    (.object_ (JsonValue/from "voice")) (.build))
+        service (proxy [VoiceService] [] (delete [id] (is (= "voice_123" id)) deleted))
+        audio-service (proxy [AudioService] [] (voices [] service))
+        client (proxy [OpenAIClient] [] (audio [] audio-service))]
+    (is (= {:id "voice_123" :deleted true :object "voice"}
+           (audio/delete-voice client "voice_123")))))
 
 (deftest creates-voice-through-the-audio-service
   (let [voice (-> (Voice/builder) (.id "voice_123") (.createdAt 42) (.name "Ada")

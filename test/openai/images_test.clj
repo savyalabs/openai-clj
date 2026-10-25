@@ -39,6 +39,7 @@
                             :background :transparent
                             :output-format :webp
                             :moderation :low
+                            :safety-identifier "safe-user"
                             :partial-images 2})]
     (is (= "a red fox" (.prompt p)))
     (is (= "gpt-image-1" (.asString ^ImageModel (opt (.model p)))))
@@ -49,6 +50,7 @@
     (is (= "transparent" (.asString ^ImageGenerateParams$Background (opt (.background p)))))
     (is (= "webp" (.asString ^ImageGenerateParams$OutputFormat (opt (.outputFormat p)))))
     (is (= "low" (.asString ^ImageGenerateParams$Moderation (opt (.moderation p)))))
+    (is (= "safe-user" (opt (.safetyIdentifier p))))
     (is (= 2 (opt (.partialImages p))))))
 
 (deftest coerces-edit-bytes-with-filename

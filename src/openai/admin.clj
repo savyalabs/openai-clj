@@ -19,9 +19,15 @@
            (com.openai.services.blocking.admin.organization AdminApiKeyService AuditLogService CertificateService DataRetentionService ExternalStorageService GroupService InviteService ProjectService RoleService SpendAlertService SpendLimitService UsageService UserService)))
 (set! *warn-on-reflection* true)
 
-(defn- ->project-create-params ^ProjectCreateParams [{:keys [name]}]
+(defn- ->project-create-params ^ProjectCreateParams [{:keys [name external-key-id geography residency]}]
   (when-not name (impl/missing-key! :name))
-  (-> (ProjectCreateParams/builder) (.name ^String name) (.build)))
+  (let [b (ProjectCreateParams/builder)]
+    (.name b ^String name)
+    (when external-key-id (.externalKeyId b ^String external-key-id))
+    (when geography (.geography b ^String geography))
+    (when residency (.residency b (com.openai.models.admin.organization.projects.ProjectResidency/of
+                                  (impl/enum-name residency))))
+    (.build b)))
 
 (defn- organization ^OrganizationService [^OpenAIClient client]
   (.organization (.admin client)))
@@ -292,9 +298,14 @@
   ([^OpenAIClient client] (invite-list client {}))
   ([^OpenAIClient client opts] (impl/with-api-errors (let [^InviteService s (.invites (organization client)) ^InviteListPage p (.list s (->invite-list-params opts))] (mapv invite->map (impl/all-pages p))))))
 (defn invite-delete [^OpenAIClient client ^String id] (impl/with-api-errors (let [^InviteService s (.invites (organization client)) ^InviteDeleteResponse r (.delete s id)] {:id (.id r) :deleted (.deleted r)})))
-(defn- ->project-update-params ^ProjectUpdateParams [^String project-id {:keys [name]}]
+(defn- ->project-update-params ^ProjectUpdateParams [^String project-id {:keys [name external-key-id geography]}]
   (when-not name (impl/missing-key! :name))
-  (-> (ProjectUpdateParams/builder) (.projectId project-id) (.name ^String name) (.build)))
+  (let [b (ProjectUpdateParams/builder)]
+    (.projectId b project-id)
+    (.name b ^String name)
+    (when external-key-id (.externalKeyId b ^String external-key-id))
+    (when geography (.geography b ^String geography))
+    (.build b)))
 (defn- ->project-list-params ^ProjectListParams [{:keys [after include-archived limit]}]
   (let [b (ProjectListParams/builder)]
     (when after (.after b ^String after))
@@ -304,7 +315,13 @@
 (defn- project->map [^Project p]
   (cond-> {:id (.id p) :created-at (.createdAt p)}
     (.isPresent (.archivedAt p)) (assoc :archived-at (impl/opt-get (.archivedAt p)))
+    (.isPresent (.externalKeyId p)) (assoc :external-key-id (impl/opt-get (.externalKeyId p)))
     (.isPresent (.name p)) (assoc :name (impl/opt-get (.name p)))
+    (.isPresent (.residency p))
+    (assoc :residency
+           (impl/->keyword
+            (.asString ^com.openai.models.admin.organization.projects.ProjectResidency
+                       (impl/opt-get (.residency p)))))
     (.isPresent (.status p)) (assoc :status (impl/opt-get (.status p)))))
 (defn project-create [^OpenAIClient client req]
   (impl/with-api-errors (let [^ProjectService s (.projects (organization client))] (project->map (.create s (->project-create-params req))))))

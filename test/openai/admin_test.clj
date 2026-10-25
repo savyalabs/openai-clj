@@ -31,8 +31,13 @@
                                                       UsageCostsResponse$Data$Result$OrganizationCostsResult$ApiSource)))
 (set! *warn-on-reflection* true)
 (deftest translates-project-create
-  (let [^ProjectCreateParams p (#'admin/->project-create-params {:name "research"})]
-    (is (= "research" (.name p)))))
+  (let [^ProjectCreateParams p (#'admin/->project-create-params
+                                 {:name "research" :external-key-id "ext_123"
+                                  :geography "au" :residency :au-storage-processing})]
+    (is (= "research" (.name p)))
+    (is (= "ext_123" (impl/opt-get (.externalKeyId p))))
+    (is (= "au" (impl/opt-get (.geography p))))
+    (is (= "au_storage_processing" (.asString (impl/opt-get (.residency p)))))))
 
 (deftest converts-project-present-only
   (let [project (-> (Project/builder) (.id "proj_1") (.createdAt 123)

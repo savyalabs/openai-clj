@@ -2434,10 +2434,14 @@
                          (.build))
         error (-> (com.openai.models.responses.ResponseError/builder)
                   (.code (com.openai.models.responses.ResponseError$Code/MISALIGNMENT_POLICY_VIOLATION))
+                  (.param "input")
+                  (.type "invalid_request_error")
                   (.message "Request paused")
                   (.misalignment misalignment)
                   (.build))]
     (is (= {:code :misalignment-policy-violation
+            :param "input"
+            :type "invalid_request_error"
             :message "Request paused"
             :misalignment {:detailed-explanation "The request crossed a boundary."
                            :error-type :potentially-unintended-data-access
