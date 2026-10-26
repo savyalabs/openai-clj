@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.42.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.43.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.42.0"]
+[net.clojars.savya/openai-clj "0.43.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.81.0](https://github.com/openai/openai-java/releases/tag/v4.81.0).
+Tracks [`com.openai/openai-java` 4.91.0](https://github.com/openai/openai-java/releases/tag/v4.91.0).
 
 ## Providers
 
@@ -419,6 +419,9 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
                              :input "Hello"})
 (audio/create-voice client {:type :audio-sample :audio-sample voice-sample
                             :consent "I consent" :name "Ada"})
+(audio/create-voice-consent client {:recording consent-recording
+                                    :language "en" :name "Ada"})
+(audio/list-voice-consents client {:limit 20})
 (cpc/create client {:file "image.png"})
 (moderations/create client {:input "text"})
 (safety/retrieve client "safety_alert_...")
@@ -487,6 +490,11 @@ safety case retrieval.
 `openai.graders` maps to the stable grader-model service. Model names are passed
 through as strings, including `"gpt-6-astra"` and `"gpt-6.1-sol"`. The service exposes
 no operations in SDK 4.62.0.
+
+`openai.audio` also supports custom-voice consent management with
+`create-voice-consent`, `retrieve-voice-consent`, `list-voice-consents`,
+`update-voice-consent`, and `delete-voice-consent`; `delete-voice` deletes a
+custom voice. `create-voice` accepts both `:audio-sample` and `:prompt` forms.
 
 `openai.decisions/create` creates structured predicate, choice, and score
 decisions: `(decisions/create client {:model "gpt-5" :input "Review this"

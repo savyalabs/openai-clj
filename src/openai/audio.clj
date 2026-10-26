@@ -2,14 +2,25 @@
   "Clojure wrapper for the OpenAI Audio API."
   (:require [openai.impl :as impl])
   (:import (com.openai.client OpenAIClient)
-           (com.openai.core MultipartField MultipartField$Builder)
+           (com.openai.core JsonValue MultipartField MultipartField$Builder)
            (com.openai.core.http HttpResponse StreamResponse)
            (com.openai.models.audio AudioResponseFormat)
-           (com.openai.models.audio.voices Voice
+           (com.openai.models.audio.voiceconsents VoiceConsent
+                                                  VoiceConsentCreateParams
+                                                  VoiceConsentCreateParams$Builder
+                                                  VoiceConsentListParams
+                                                  VoiceConsentListParams$Builder
+                                                  VoiceConsentUpdateParams
+                                                  VoiceConsentUpdateParams$Builder
+                                                  VoiceConsentDeleted)
+           (com.openai.models.audio.voices Voice VoiceDeleted
                                            VoiceCreateParams
                                            VoiceCreateParams$Builder
+                                           VoiceCreateParams$Body
                                            VoiceCreateParams$Body$AudioSample
-                                           VoiceCreateParams$Body$AudioSample$Type)
+                                           VoiceCreateParams$Body$AudioSample$Type
+                                           VoiceCreateParams$Body$Prompt
+                                           VoiceCreateParams$Body$Prompt$Builder)
            (com.openai.models.audio.speech SpeechCreateParams
                                            SpeechCreateParams$Builder
                                            SpeechCreateParams$ResponseFormat
@@ -47,6 +58,7 @@
            (com.openai.services.blocking.audio SpeechService
                                                  TranscriptionService
                                                  TranslationService
+                                                 VoiceConsentService
                                                  VoiceService)
            (java.io ByteArrayInputStream File InputStream)
            (java.nio.file Files Path)
@@ -206,26 +218,82 @@
                   {:openai/error :invalid-voice-variant :type type})))
 
 (defn- ->voice-params ^VoiceCreateParams
-  [{:keys [type audio-sample consent name]}]
+  [{:keys [type audio-sample consent name prompt model script-hint]}]
   (let [^VoiceCreateParams$Builder b (VoiceCreateParams/builder)]
-    (when-not (or (nil? type) (= :audio-sample type))
+    (when-not (or (nil? type) (= :audio-sample type) (= :prompt type))
       (invalid-voice-variant! type))
-    (when-not audio-sample (impl/missing-key! :audio-sample))
-    (when-not consent (impl/missing-key! :consent))
     (when-not name (impl/missing-key! :name))
-    (.body b
-           (let [body (VoiceCreateParams$Body$AudioSample/builder)]
-             (.audioSample body (->input-stream audio-sample))
-             (.consent body ^String consent)
-             (.name body ^String name)
-             (.type body (VoiceCreateParams$Body$AudioSample$Type/of "audio_sample"))
-             (.build body)))
+    (if (= :prompt type)
+      (.body b
+             (VoiceCreateParams$Body/ofPrompt
+              (let [^VoiceCreateParams$Body$Prompt$Builder body (VoiceCreateParams$Body$Prompt/builder)]
+                (when-not prompt (impl/missing-key! :prompt))
+                (.name body ^String name)
+                (.prompt body ^String prompt)
+                (.type body (JsonValue/from "prompt"))
+                (when model (.model body ^String model))
+                (when script-hint (.scriptHint body ^String script-hint))
+                (.build body))))
+      (do
+        (when-not audio-sample (impl/missing-key! :audio-sample))
+        (when-not consent (impl/missing-key! :consent))
+        (.body b
+               (let [body (VoiceCreateParams$Body$AudioSample/builder)]
+                 (.audioSample body (->input-stream audio-sample))
+                 (.consent body ^String consent)
+                 (.name body ^String name)
+                 (.type body (VoiceCreateParams$Body$AudioSample$Type/of "audio_sample"))
+                 (.build body)))))
     (.build b)))
 
 (defn- voice->map [^Voice voice]
-  {:id (.id voice) :created-at (.createdAt voice) :name (.name voice)
-   :object (impl/json-value->clj (._object_ voice))
-   :type (impl/->keyword (.asString (.type voice)))})
+  (cond-> {:id (.id voice) :created-at (.createdAt voice) :name (.name voice)
+           :object (impl/json-value->clj (._object_ voice))
+           :type (impl/->keyword (.asString (.type voice)))}
+    (.isPresent (.prompt voice)) (assoc :prompt (impl/opt-get (.prompt voice)))))
+
+(defn- ->voice-consent-params ^VoiceConsentCreateParams
+  [{:keys [recording filename language name]}]
+  (when-not recording (impl/missing-key! :recording))
+  (when-not language (impl/missing-key! :language))
+  (when-not name (impl/missing-key! :name))
+  (let [^VoiceConsentCreateParams$Builder b (VoiceConsentCreateParams/builder)]
+    (if filename
+      (.recording b (->file-field recording filename))
+      (cond
+        (instance? Path recording) (.recording b ^Path recording)
+        (string? recording) (.recording b (.toPath (File. ^String recording)))
+        (bytes? recording) (.recording b ^bytes recording)
+        :else (.recording b ^InputStream recording)))
+    (.language b ^String language)
+    (.name b ^String name)
+    (.build b)))
+
+(defn- ->voice-consent-list-params ^VoiceConsentListParams
+  [{:keys [after limit]}]
+  (let [^VoiceConsentListParams$Builder b (VoiceConsentListParams/builder)]
+    (when after (.after b ^String after))
+    (when limit (.limit b (long limit)))
+    (.build b)))
+
+(defn- ->voice-consent-update-params ^VoiceConsentUpdateParams [^String consent-id {:keys [name]}]
+  (when-not name (impl/missing-key! :name))
+  (let [^VoiceConsentUpdateParams$Builder b (VoiceConsentUpdateParams/builder)]
+    (.consentId b consent-id)
+    (.name b ^String name)
+    (.build b)))
+
+(defn- voice-consent->map [^VoiceConsent consent]
+  {:id (.id consent) :created-at (.createdAt consent) :language (.language consent)
+   :name (.name consent) :object (impl/json-value->clj (._object_ consent))})
+
+(defn- voice-deleted->map [^VoiceDeleted deleted]
+  {:id (.id deleted) :deleted (.deleted deleted)
+   :object (impl/json-value->clj (._object_ deleted))})
+
+(defn- voice-consent-deleted->map [^VoiceConsentDeleted deleted]
+  {:id (.id deleted) :deleted (.deleted deleted)
+   :object (impl/json-value->clj (._object_ deleted))})
 
 (defn- transcription-event->map [^TranscriptionStreamEvent event]
   (cond
@@ -260,12 +328,61 @@
 (defn create-voice
   "Create a custom voice from an audio sample and return a normalized response map.
 
-   As of SDK 4.81.0, only audio-sample voice creation is supported."
+   Audio-sample and prompt voice creation are supported."
   [^OpenAIClient client req]
   (impl/with-api-errors
     (let [^AudioService audio (.audio client)
           ^VoiceService svc (.voices audio)]
       (voice->map (.create svc (->voice-params req))))))
+
+(defn delete-voice
+  "Delete a custom voice and return its deletion result."
+  [^OpenAIClient client ^String voice-id]
+  (impl/with-api-errors
+    (let [^AudioService audio (.audio client)
+          ^VoiceService svc (.voices audio)]
+      (voice-deleted->map (.delete svc voice-id)))))
+
+(defn create-voice-consent
+  "Create a custom-voice consent recording and return it as a normalized map."
+  [^OpenAIClient client req]
+  (impl/with-api-errors
+    (let [^AudioService audio (.audio client)
+          ^VoiceConsentService svc (.voiceConsents audio)]
+      (voice-consent->map (.create svc (->voice-consent-params req))))))
+
+(defn retrieve-voice-consent
+  "Retrieve a custom-voice consent by ID."
+  [^OpenAIClient client ^String consent-id]
+  (impl/with-api-errors
+    (let [^AudioService audio (.audio client)
+          ^VoiceConsentService svc (.voiceConsents audio)]
+      (voice-consent->map (.retrieve svc consent-id)))))
+
+(defn list-voice-consents
+  "List custom-voice consents eagerly. Accepts optional `:after` and `:limit`."
+  ([^OpenAIClient client] (list-voice-consents client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^AudioService audio (.audio client)
+           ^VoiceConsentService svc (.voiceConsents audio)]
+       (mapv voice-consent->map (impl/all-pages (.list svc (->voice-consent-list-params opts))))))))
+
+(defn update-voice-consent
+  "Rename a custom-voice consent and return the normalized consent map."
+  [^OpenAIClient client ^String consent-id req]
+  (impl/with-api-errors
+    (let [^AudioService audio (.audio client)
+          ^VoiceConsentService svc (.voiceConsents audio)]
+      (voice-consent->map (.update svc (->voice-consent-update-params consent-id req))))))
+
+(defn delete-voice-consent
+  "Delete a custom-voice consent and return its deletion result."
+  [^OpenAIClient client ^String consent-id]
+  (impl/with-api-errors
+    (let [^AudioService audio (.audio client)
+          ^VoiceConsentService svc (.voiceConsents audio)]
+      (voice-consent-deleted->map (.delete svc consent-id)))))
 
 (defn create-transcription-streaming
   "Stream a transcription. Call `on-event` and return concatenated text deltas."

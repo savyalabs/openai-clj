@@ -1162,6 +1162,8 @@
 (defn- error->map [^ResponseError e]
   (cond-> {:code (impl/->keyword (.asString (.code e)))
            :message (.message e)}
+    (.isPresent (.param e)) (assoc :param (impl/opt-get (.param e)))
+    (.isPresent (.type e)) (assoc :type (impl/opt-get (.type e)))
     (.isPresent (.misalignment e))
     (assoc :misalignment (impl/misalignment->map (impl/opt-get (.misalignment e))))))
 

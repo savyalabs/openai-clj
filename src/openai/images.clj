@@ -54,7 +54,7 @@
 
 (defn- ->generate-params ^ImageGenerateParams
   [{:keys [prompt model n size quality style response-format background
-           output-format output-compression moderation partial-images user]}]
+           output-format output-compression moderation partial-images safety-identifier user]}]
   (when-not prompt (impl/missing-key! :prompt))
   (let [^ImageGenerateParams$Builder b (ImageGenerateParams/builder)]
     (.prompt b ^String prompt)
@@ -69,6 +69,7 @@
     (when output-compression (.outputCompression b (long output-compression)))
     (when moderation (.moderation b (ImageGenerateParams$Moderation/of (impl/enum-name moderation))))
     (when partial-images (.partialImages b (long partial-images)))
+    (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
     (when user (.user b ^String user))
     (.build b)))
 
@@ -122,7 +123,7 @@
 (defn- ->edit-params ^ImageEditParams
   [{:keys [image filename mask mask-filename prompt model n size response-format
            background input-fidelity output-compression output-format
-           partial-images quality user]}]
+           partial-images quality safety-identifier user]}]
   (when-not image (impl/missing-key! :image))
   (when-not prompt (impl/missing-key! :prompt))
   (let [^ImageEditParams$Builder b (ImageEditParams/builder)]
@@ -139,6 +140,7 @@
     (when output-format (.outputFormat b (ImageEditParams$OutputFormat/of (impl/enum-name output-format))))
     (when partial-images (.partialImages b (long partial-images)))
     (when quality (.quality b (ImageEditParams$Quality/of (impl/enum-name quality))))
+    (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
     (when user (.user b ^String user))
     (.build b)))
 
@@ -210,7 +212,9 @@
     (.isPresent (.size response))
     (assoc :size (impl/->keyword (.asString ^ImagesResponse$Size (impl/opt-get (.size response)))))
     (.isPresent (.usage response))
-    (assoc :usage (usage->map (impl/opt-get (.usage response))))))
+    (assoc :usage (usage->map (impl/opt-get (.usage response))))
+    (.isPresent (.safetyIdentifier response))
+    (assoc :safety-identifier (impl/opt-get (.safetyIdentifier response)))))
 
 (defn- partial-event->map [event]
   (condp instance? event
@@ -231,20 +235,24 @@
   (condp instance? event
     ImageGenCompletedEvent
     (let [^ImageGenCompletedEvent e event]
-      {:type :completed :b64-json (.b64Json e) :created-at (.createdAt e)
-       :background (impl/->keyword (.asString (.background e)))
-       :output-format (impl/->keyword (.asString (.outputFormat e)))
-       :quality (impl/->keyword (.asString (.quality e)))
-       :size (impl/->keyword (.asString (.size e)))
-       :usage (event-usage->map (.usage e))})
+      (cond-> {:type :completed :b64-json (.b64Json e) :created-at (.createdAt e)
+               :background (impl/->keyword (.asString (.background e)))
+               :output-format (impl/->keyword (.asString (.outputFormat e)))
+               :quality (impl/->keyword (.asString (.quality e)))
+               :size (impl/->keyword (.asString (.size e)))
+               :usage (event-usage->map (.usage e))}
+        (.isPresent (.safetyIdentifier e))
+        (assoc :safety-identifier (impl/opt-get (.safetyIdentifier e)))))
     ImageEditCompletedEvent
     (let [^ImageEditCompletedEvent e event]
-      {:type :completed :b64-json (.b64Json e) :created-at (.createdAt e)
-       :background (impl/->keyword (.asString (.background e)))
-       :output-format (impl/->keyword (.asString (.outputFormat e)))
-       :quality (impl/->keyword (.asString (.quality e)))
-       :size (impl/->keyword (.asString (.size e)))
-       :usage (event-usage->map (.usage e))})))
+      (cond-> {:type :completed :b64-json (.b64Json e) :created-at (.createdAt e)
+               :background (impl/->keyword (.asString (.background e)))
+               :output-format (impl/->keyword (.asString (.outputFormat e)))
+               :quality (impl/->keyword (.asString (.quality e)))
+               :size (impl/->keyword (.asString (.size e)))
+               :usage (event-usage->map (.usage e))}
+        (.isPresent (.safetyIdentifier e))
+        (assoc :safety-identifier (impl/opt-get (.safetyIdentifier e)))))))
 
 (defn- generate-event->map [^ImageGenStreamEvent event]
   (if (.isGenerationPartialImage event)
