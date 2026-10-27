@@ -8,7 +8,9 @@
                                    LiveCreateResponse
                                    LiveCreateResponse$Session
                                    LiveCreateResponse$Transport
+                                   ClientDelegation
                                    MediaSessionConfig
+                                   MediaSessionConfig$Delegation
                                    MediaSessionForkConfig)
            (com.openai.models.live.sessions SessionAcceptParams
                                              SessionHangupParams
@@ -44,6 +46,16 @@
            [{:session {:model "gpt-live-1"} :transport {}} :sdp]]]
     (is (= {:openai/error :missing-key :key key}
            (error-data #(#'live/->live-create-params request))))))
+
+(deftest live-delegation-acknowledgement-delay-ms
+  (let [^LiveCreateParams p (#'live/->live-create-params
+                              {:session {:model "gpt-live-1"
+                                         :delegation {:type :client :acknowledgement-delay-ms 250}}
+                               :transport {:sdp "offer"}})
+        ^MediaSessionConfig session (.session p)
+        ^MediaSessionConfig$Delegation delegation (.get (.delegation session))
+        ^ClientDelegation client (.asClient delegation)]
+    (is (= 250 (.get (.acknowledgementDelayMs client))))))
 
 (deftest creates-live-session-and-normalizes-response
   (let [build-params (ns-resolve 'openai.live '->live-create-params)

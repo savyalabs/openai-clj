@@ -333,6 +333,20 @@
     (is (= "gpt-5.2" (.asString (opt (.model p)))))
     (is (= "plain string" (.asText (opt (.input p)))))))
 
+(deftest responses-input-prompt-cache-breakpoint-ttl
+  (let [p (params {:model "gpt-5.2"
+                   :input [{:role :user
+                            :content [{:type :text :text "text"
+                                       :prompt-cache-breakpoint {:ttl :30m}}
+                                      {:type :image :image-url "https://example.test/image.png" :detail :auto
+                                       :prompt-cache-breakpoint {:ttl :12h}}
+                                      {:type :file :file-id "file_123"
+                                       :prompt-cache-breakpoint {:ttl :30m}}]}]})
+        content (-> p .input opt .asResponse first .asEasyInputMessage .content .asResponseInputMessageContentList)]
+    (is (= "30m" (-> content first .asInputText .promptCacheBreakpoint opt .ttl opt .asString)))
+    (is (= "12h" (-> content second .asInputImage .promptCacheBreakpoint opt .ttl opt .asString)))
+    (is (= "30m" (-> content (nth 2) .asInputFile .promptCacheBreakpoint opt .ttl opt .asString)))))
+
 (deftest translates-message-vector-input
   (let [p (params {:model "gpt-5.2"
                    :input [{:role :system :content "sys"}
@@ -416,6 +430,21 @@
                                    :service-tier :fast})]
     (is (= "fast" (.asString (opt (.serviceTier response-params)))))
     (is (= "fast" (.asString (opt (.serviceTier chat-params)))))))
+
+(deftest chat-content-part-prompt-cache-breakpoint-ttl
+  (let [p (chat-params {:model "gpt-4o-mini"
+                        :messages [{:role :user
+                                    :content [{:type :text :text "hi"
+                                               :prompt-cache-breakpoint {:ttl :12h}}]}]})
+        part (-> p .messages first .asUser .content .asArrayOfContentParts first .asText)]
+    (is (= "12h" (-> part .promptCacheBreakpoint opt .ttl opt .asString)))))
+
+(deftest gpt-6-1-terra-model-passes-through
+  (let [response (params {:model "gpt-6.1-terra" :input "hi"})
+        chat (chat-params {:model "gpt-6.1-terra"
+                           :messages [{:role :user :content "hi"}]})]
+    (is (= "gpt-6.1-terra" (.asString (opt (.model response)))))
+    (is (= "gpt-6.1-terra" (.asString (.model chat))))))
 
 (deftest translates-ultrafast-service-tier
   (let [response-params (params {:model "gpt-5.2" :input "hi" :service-tier :ultrafast})

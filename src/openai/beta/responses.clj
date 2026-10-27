@@ -68,24 +68,40 @@
 
 (set! *warn-on-reflection* true)
 
-(defn- ->input-text ^com.openai.models.beta.responses.BetaResponseInputContent [{:keys [text]}]
+(defn- ->input-text-prompt-cache-breakpoint
+  ^com.openai.models.beta.responses.BetaResponseInputText$PromptCacheBreakpoint [m]
+  (impl/sdk-input-object m com.openai.models.beta.responses.BetaResponseInputText$PromptCacheBreakpoint))
+
+(defn- ->input-image-prompt-cache-breakpoint
+  ^com.openai.models.beta.responses.BetaResponseInputImage$PromptCacheBreakpoint [m]
+  (impl/sdk-input-object m com.openai.models.beta.responses.BetaResponseInputImage$PromptCacheBreakpoint))
+
+(defn- ->input-file-prompt-cache-breakpoint
+  ^com.openai.models.beta.responses.BetaResponseInputFile$PromptCacheBreakpoint [m]
+  (impl/sdk-input-object m com.openai.models.beta.responses.BetaResponseInputFile$PromptCacheBreakpoint))
+
+(defn- ->input-text ^com.openai.models.beta.responses.BetaResponseInputContent [{:keys [text prompt-cache-breakpoint]}]
   (when-not text (impl/missing-key! :text))
   (let [b (com.openai.models.beta.responses.BetaResponseInputText/builder)]
     (.text b ^String text)
+    (when prompt-cache-breakpoint
+      (.promptCacheBreakpoint b (->input-text-prompt-cache-breakpoint prompt-cache-breakpoint)))
     (BetaResponseInputContent/ofInputText (.build b))))
 
 (defn- ->input-image ^com.openai.models.beta.responses.BetaResponseInputContent
-  [{:keys [image-url file-id detail]}]
+  [{:keys [image-url file-id detail prompt-cache-breakpoint]}]
   (let [b (com.openai.models.beta.responses.BetaResponseInputImage/builder)]
     (when image-url (.imageUrl b ^String image-url))
     (when file-id (.fileId b ^String file-id))
     (when detail
       (.detail b (com.openai.models.beta.responses.BetaResponseInputImage$Detail/of
                   (impl/enum-name detail))))
+    (when prompt-cache-breakpoint
+      (.promptCacheBreakpoint b (->input-image-prompt-cache-breakpoint prompt-cache-breakpoint)))
     (BetaResponseInputContent/ofInputImage (.build b))))
 
 (defn- ->input-file ^com.openai.models.beta.responses.BetaResponseInputContent
-  [{:keys [file-id filename file-data file-url detail]}]
+  [{:keys [file-id filename file-data file-url detail prompt-cache-breakpoint]}]
   (let [b (com.openai.models.beta.responses.BetaResponseInputFile/builder)]
     (when file-id (.fileId b ^String file-id))
     (when filename (.filename b ^String filename))
@@ -94,6 +110,8 @@
     (when detail
       (.detail b (com.openai.models.beta.responses.BetaResponseInputFile$Detail/of
                   (impl/enum-name detail))))
+    (when prompt-cache-breakpoint
+      (.promptCacheBreakpoint b (->input-file-prompt-cache-breakpoint prompt-cache-breakpoint)))
     (BetaResponseInputContent/ofInputFile (.build b))))
 
 (defn- ->input-content ^com.openai.models.beta.responses.BetaResponseInputContent

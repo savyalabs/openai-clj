@@ -130,6 +130,20 @@
                  (error-data #(build-params {}))))))
       (is false "openai.beta.agents/create is not implemented"))))
 
+(deftest beta-agent-automations-tool
+  (let [build-params (resolve-agents-var '->agent-create-params)
+        agent->map (resolve-agents-var 'agent->map)
+        response (-> (agent-response "agent_automations" "Automate")
+                     (.toBuilder)
+                     (.addToolAutomations)
+                     (.build))]
+    (is (= [{:type "automations"}]
+           (-> ^AgentCreateParams (build-params {:model "gpt-5.2"
+                                                  :tools [{:type :automations}]})
+               ._additionalBodyProperties (get "tools") json-value->clj)))
+    (is (= [{:type "automations"}]
+           (:tools (agent->map response))))))
+
 (deftest retrieves-agent-and-normalizes-response
   (let [build-params (resolve-agents-var '->agent-retrieve-params)
         retrieve-agent (resolve-agents-var 'retrieve)]

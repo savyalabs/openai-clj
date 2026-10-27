@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-10-26
+
+### Added
+
+- Support prompt-cache breakpoint TTLs in Chat and stable/beta Responses input
+  content, plus Live delegation acknowledgement delays.
+- Preserve beta Agent automations tools and the `gpt-6.1-terra` model name.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.93.0.
+
 ## [0.43.0] - 2026-10-25
 
 ### Added

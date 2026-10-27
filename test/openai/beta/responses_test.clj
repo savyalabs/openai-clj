@@ -107,6 +107,21 @@
       (is (.isBetaResponse input))
       (is (= 1 (count (.asBetaResponse input)))))))
 
+(deftest beta-responses-input-prompt-cache-breakpoint-ttl
+  (let [p (#'responses/->params
+           {:model "gpt-beta"
+            :input [{:role :user
+                     :content [{:type :text :text "text"
+                                :prompt-cache-breakpoint {:ttl :30m}}
+                               {:type :image :image-url "https://example.test/image.png" :detail :auto
+                                :prompt-cache-breakpoint {:ttl :12h}}
+                               {:type :file :file-id "file_123"
+                                :prompt-cache-breakpoint {:ttl :30m}}]}]})
+        content (-> p .input impl/opt-get .asBetaResponse first .asMessage .content)]
+    (is (= "30m" (-> content first .asInputText .promptCacheBreakpoint impl/opt-get .ttl impl/opt-get .asString)))
+    (is (= "12h" (-> content second .asInputImage .promptCacheBreakpoint impl/opt-get .ttl impl/opt-get .asString)))
+    (is (= "30m" (-> content (nth 2) .asInputFile .promptCacheBreakpoint impl/opt-get .ttl impl/opt-get .asString)))))
+
 (deftest translates-beta-create-request-surface
   (let [p (#'responses/->params
            {:model "gpt-beta"
