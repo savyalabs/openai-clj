@@ -515,24 +515,42 @@
     (when id (.id b ^String id))
     (ResponseInputItem/ofMcpApprovalResponse (.build b))))
 
-(defn- ->input-text ^ResponseInputContent [{:keys [text]}]
+(defn- ->input-text-prompt-cache-breakpoint
+  ^com.openai.models.responses.ResponseInputText$PromptCacheBreakpoint [m]
+  (impl/sdk-input-object m com.openai.models.responses.ResponseInputText$PromptCacheBreakpoint))
+
+(defn- ->input-image-prompt-cache-breakpoint
+  ^com.openai.models.responses.ResponseInputImage$PromptCacheBreakpoint [m]
+  (impl/sdk-input-object m com.openai.models.responses.ResponseInputImage$PromptCacheBreakpoint))
+
+(defn- ->input-file-prompt-cache-breakpoint
+  ^com.openai.models.responses.ResponseInputFile$PromptCacheBreakpoint [m]
+  (impl/sdk-input-object m com.openai.models.responses.ResponseInputFile$PromptCacheBreakpoint))
+
+(defn- ->input-text ^ResponseInputContent [{:keys [text prompt-cache-breakpoint]}]
   (let [^ResponseInputText$Builder b (ResponseInputText/builder)]
     (when-not text (impl/missing-key! :text))
     (.text b ^String text)
+    (when prompt-cache-breakpoint
+      (.promptCacheBreakpoint b (->input-text-prompt-cache-breakpoint prompt-cache-breakpoint)))
     (ResponseInputContent/ofInputText (.build b))))
 
-(defn- ->input-image ^ResponseInputContent [{:keys [image-url file-id detail]}]
+(defn- ->input-image ^ResponseInputContent [{:keys [image-url file-id detail prompt-cache-breakpoint]}]
   (let [^ResponseInputImage$Builder b (ResponseInputImage/builder)]
     (when image-url (.imageUrl b ^String image-url))
     (when file-id (.fileId b ^String file-id))
     (when detail (.detail b (ResponseInputImage$Detail/of (impl/enum-name detail))))
+    (when prompt-cache-breakpoint
+      (.promptCacheBreakpoint b (->input-image-prompt-cache-breakpoint prompt-cache-breakpoint)))
     (ResponseInputContent/ofInputImage (.build b))))
 
-(defn- ->input-file ^ResponseInputContent [{:keys [file-id filename file-data]}]
+(defn- ->input-file ^ResponseInputContent [{:keys [file-id filename file-data prompt-cache-breakpoint]}]
   (let [^ResponseInputFile$Builder b (ResponseInputFile/builder)]
     (when file-id (.fileId b ^String file-id))
     (when filename (.filename b ^String filename))
     (when file-data (.fileData b ^String file-data))
+    (when prompt-cache-breakpoint
+      (.promptCacheBreakpoint b (->input-file-prompt-cache-breakpoint prompt-cache-breakpoint)))
     (ResponseInputContent/ofInputFile (.build b))))
 
 (defn- ->input-content ^ResponseInputContent [{:keys [type] :as part}]
@@ -1523,22 +1541,38 @@
     (.additionalProperties b ^java.util.Map (impl/->json-value-properties m))
     (.build b)))
 
-(defn- ->chat-content-part-text ^ChatCompletionContentPartText [{:keys [text]}]
+(defn- ->chat-text-prompt-cache-breakpoint
+  ^com.openai.models.chat.completions.ChatCompletionContentPartText$PromptCacheBreakpoint [m]
+  (impl/sdk-input-object m com.openai.models.chat.completions.ChatCompletionContentPartText$PromptCacheBreakpoint))
+
+(defn- ->chat-image-prompt-cache-breakpoint
+  ^com.openai.models.chat.completions.ChatCompletionContentPartImage$PromptCacheBreakpoint [m]
+  (impl/sdk-input-object m com.openai.models.chat.completions.ChatCompletionContentPartImage$PromptCacheBreakpoint))
+
+(defn- ->chat-input-audio-prompt-cache-breakpoint
+  ^com.openai.models.chat.completions.ChatCompletionContentPartInputAudio$PromptCacheBreakpoint [m]
+  (impl/sdk-input-object m com.openai.models.chat.completions.ChatCompletionContentPartInputAudio$PromptCacheBreakpoint))
+
+(defn- ->chat-content-part-text ^ChatCompletionContentPartText [{:keys [text prompt-cache-breakpoint]}]
   (let [^ChatCompletionContentPartText$Builder b (ChatCompletionContentPartText/builder)]
     (when-not text (impl/missing-key! :text))
     (.text b ^String text)
+    (when prompt-cache-breakpoint
+      (.promptCacheBreakpoint b (->chat-text-prompt-cache-breakpoint prompt-cache-breakpoint)))
     (.build b)))
 
-(defn- ->chat-content-part-image ^ChatCompletionContentPartImage [{:keys [image-url detail]}]
+(defn- ->chat-content-part-image ^ChatCompletionContentPartImage [{:keys [image-url detail prompt-cache-breakpoint]}]
   (let [^ChatCompletionContentPartImage$ImageUrl$Builder ub (ChatCompletionContentPartImage$ImageUrl/builder)
         ^ChatCompletionContentPartImage$Builder b (ChatCompletionContentPartImage/builder)]
     (when-not image-url (impl/missing-key! :image-url))
     (.url ub ^String image-url)
     (when detail (.detail ub (ChatCompletionContentPartImage$ImageUrl$Detail/of (name detail))))
     (.imageUrl b (.build ub))
+    (when prompt-cache-breakpoint
+      (.promptCacheBreakpoint b (->chat-image-prompt-cache-breakpoint prompt-cache-breakpoint)))
     (.build b)))
 
-(defn- ->chat-content-part-input-audio ^ChatCompletionContentPartInputAudio [{:keys [data format]}]
+(defn- ->chat-content-part-input-audio ^ChatCompletionContentPartInputAudio [{:keys [data format prompt-cache-breakpoint]}]
   (let [^ChatCompletionContentPartInputAudio$InputAudio$Builder ab
         (ChatCompletionContentPartInputAudio$InputAudio/builder)
         ^ChatCompletionContentPartInputAudio$Builder b (ChatCompletionContentPartInputAudio/builder)]
@@ -1547,6 +1581,8 @@
     (.data ab ^String data)
     (.format ab (ChatCompletionContentPartInputAudio$InputAudio$Format/of (name format)))
     (.inputAudio b (.build ab))
+    (when prompt-cache-breakpoint
+      (.promptCacheBreakpoint b (->chat-input-audio-prompt-cache-breakpoint prompt-cache-breakpoint)))
     (.build b)))
 
 (defn- ->chat-content-part ^ChatCompletionContentPart [{:keys [type] :as part}]

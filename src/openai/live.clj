@@ -10,6 +10,7 @@
                                    LiveCreateResponse
                                    MediaSessionConfig
                                    MediaSessionConfig$Builder
+                                   MediaSessionConfig$Delegation
                                    MediaSessionConfig$Model
                                    MediaSessionForkConfig
                                    MediaSessionForkConfig$Builder)
@@ -56,15 +57,19 @@
     (.putAdditionalProperty builder (wire-name k) (json-value v)))
   builder)
 
+(defn- ->delegation ^MediaSessionConfig$Delegation [m]
+  (impl/sdk-input-object m MediaSessionConfig$Delegation))
+
 (defn- ->media-session ^MediaSessionConfig [session]
   (when-not session (impl/missing-key! :session))
-  (let [{:keys [model]} session]
+  (let [{:keys [model delegation]} session]
     (when-not model (impl/missing-key! :model))
     (let [^MediaSessionConfig$Builder b (MediaSessionConfig/builder)]
       (.model b (MediaSessionConfig$Model/of (if (keyword? model)
                                                (name model)
                                                model)))
-      (put-media-session-properties! b (dissoc session :model))
+      (when delegation (.delegation b (->delegation delegation)))
+      (put-media-session-properties! b (dissoc session :model :delegation))
       (.build b))))
 
 (defn- ->live-transport ^LiveCreateParams$Transport [transport]
