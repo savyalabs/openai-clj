@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-10-27
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.94.0. No public API change upstream.
+
 ## [0.44.0] - 2026-10-26
 
 ### Added
