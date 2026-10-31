@@ -8,6 +8,7 @@
            (com.openai.models.admin.organization.certificates Certificate Certificate$CertificateDetails CertificateActivatePage CertificateActivateParams CertificateActivateResponse CertificateActivateResponse$CertificateDetails CertificateCreateParams CertificateDeactivatePage CertificateDeactivateParams CertificateDeactivateResponse CertificateDeactivateResponse$CertificateDetails CertificateDeleteResponse CertificateListPage CertificateListParams CertificateListParams$Order CertificateListResponse CertificateListResponse$CertificateDetails CertificateRetrieveParams CertificateRetrieveParams$Include CertificateUpdateParams)
            (com.openai.models.admin.organization.dataretention DataRetentionUpdateParams DataRetentionUpdateParams$RetentionType OrganizationDataRetention)
            (com.openai.models.admin.organization.externalstorage ExternalStorageConfiguration ExternalStorageCreateParams ExternalStorageCreateParams$Provider ExternalStorageDeleted ExternalStorageDeleteParams ExternalStorageListPage ExternalStorageListParams ExternalStorageListParams$Order ExternalStorageRetrieveParams ExternalStorageValidateParams)
+           (com.openai.models.admin.organization.externalkeys ExternalKey ExternalKeyCreateParams ExternalKeyCreateParams$Body ExternalKeyDeleteParams ExternalKeyListPage ExternalKeyListParams ExternalKeyListParams$Order ExternalKeyListParams$Purpose ExternalKeyRetrieveParams ExternalKeyValidateParams ExternalKeyValidateResponse)
            (com.openai.models.admin.organization.groups Group GroupCreateParams GroupDeleteResponse GroupListPage GroupListParams GroupListParams$Order GroupUpdateParams GroupUpdateResponse)
            (com.openai.models.admin.organization.invites Invite Invite$Project InviteCreateParams InviteCreateParams$Project InviteCreateParams$Project$Role InviteCreateParams$Role InviteDeleteResponse InviteListPage InviteListParams)
            (com.openai.models.admin.organization.projects Project ProjectCreateParams ProjectListPage ProjectListParams ProjectUpdateParams)
@@ -16,7 +17,7 @@
            (com.openai.models.admin.organization.roles Role RoleCreateParams RoleDeleteResponse RoleListPage RoleListParams RoleListParams$Order RoleUpdateParams)
            (com.openai.models.admin.organization.users OrganizationUser UserDeleteResponse UserListPage UserListParams UserUpdateParams)
            (com.openai.services.blocking.admin OrganizationService)
-           (com.openai.services.blocking.admin.organization AdminApiKeyService AuditLogService CertificateService DataRetentionService ExternalStorageService GroupService InviteService ProjectService RoleService SpendAlertService SpendLimitService UsageService UserService)))
+           (com.openai.services.blocking.admin.organization AdminApiKeyService AuditLogService CertificateService DataRetentionService ExternalKeyService ExternalStorageService GroupService InviteService ProjectService RoleService SpendAlertService SpendLimitService UsageService UserService)))
 (set! *warn-on-reflection* true)
 
 (defn- ->project-create-params ^ProjectCreateParams [{:keys [name external-key-id geography residency]}]
@@ -31,6 +32,90 @@
 
 (defn- organization ^OrganizationService [^OpenAIClient client]
   (.organization (.admin client)))
+
+(defn- ->external-key-create-params ^ExternalKeyCreateParams [req]
+  (when-not (:type req) (impl/missing-key! :type))
+  (let [^com.openai.models.admin.organization.externalkeys.ExternalKeyCreateParams$Builder
+        b (ExternalKeyCreateParams/builder)
+        ^ExternalKeyCreateParams$Body body (impl/sdk-input-object req ExternalKeyCreateParams$Body)]
+    (.body b body)
+    (.build b)))
+
+(defn- ->external-key-retrieve-params ^ExternalKeyRetrieveParams [id]
+  (when-not id (impl/missing-key! :id))
+  (-> (ExternalKeyRetrieveParams/builder) (.externalKeyId ^String id) (.build)))
+
+(defn- ->external-key-delete-params ^ExternalKeyDeleteParams [id]
+  (when-not id (impl/missing-key! :id))
+  (-> (ExternalKeyDeleteParams/builder) (.externalKeyId ^String id) (.build)))
+
+(defn- ->external-key-validate-params ^ExternalKeyValidateParams [id]
+  (when-not id (impl/missing-key! :id))
+  (-> (ExternalKeyValidateParams/builder) (.externalKeyId ^String id) (.build)))
+
+(defn- ->external-key-list-params ^ExternalKeyListParams
+  [{:keys [after limit order purpose]}]
+  (let [b (ExternalKeyListParams/builder)]
+    (when after (.after b ^String after))
+    (when limit (.limit b (long limit)))
+    (when order (.order b (ExternalKeyListParams$Order/of (impl/enum-name order))))
+    (when purpose (.purpose b (ExternalKeyListParams$Purpose/of (impl/enum-name purpose))))
+    (.build b)))
+
+(defn- external-key->map [^ExternalKey key]
+  (cond-> {:id (.id key)
+           :api-project-ids (vec (.apiProjectIds key))
+           :created-at (.createdAt key)
+           :name (.name key)
+           :object (.object_ key)
+           :type (.type key)
+           :workspace-id (.workspaceId key)}
+    (.isPresent (.audience key)) (assoc :audience (impl/opt-get (.audience key)))
+    (.isPresent (.externalId key)) (assoc :external-id (impl/opt-get (.externalId key)))
+    (.isPresent (.keyName key)) (assoc :key-name (impl/opt-get (.keyName key)))
+    (.isPresent (.keyVersion key)) (assoc :key-version (impl/opt-get (.keyVersion key)))
+    (.isPresent (.kmsArn key)) (assoc :kms-arn (impl/opt-get (.kmsArn key)))
+    (.isPresent (.kmsKeyLocation key)) (assoc :kms-key-location (impl/opt-get (.kmsKeyLocation key)))
+    (.isPresent (.kmsKeyName key)) (assoc :kms-key-name (impl/opt-get (.kmsKeyName key)))
+    (.isPresent (.kmsKeyRingName key)) (assoc :kms-key-ring-name (impl/opt-get (.kmsKeyRingName key)))
+    (.isPresent (.kmsKeyVersion key)) (assoc :kms-key-version (impl/opt-get (.kmsKeyVersion key)))
+    (.isPresent (.kmsProjectId key)) (assoc :kms-project-id (impl/opt-get (.kmsProjectId key)))
+    (.isPresent (.purpose key)) (assoc :purpose (impl/->keyword (impl/opt-get (.purpose key))))
+    (.isPresent (.roleArn key)) (assoc :role-arn (impl/opt-get (.roleArn key)))
+    (.isPresent (.tenantId key)) (assoc :tenant-id (impl/opt-get (.tenantId key)))
+    (.isPresent (.vaultUri key)) (assoc :vault-uri (impl/opt-get (.vaultUri key)))
+    (.isPresent (.workloadIdentityPoolId key)) (assoc :workload-identity-pool-id (impl/opt-get (.workloadIdentityPoolId key)))
+    (.isPresent (.workloadIdentityProjectNumber key)) (assoc :workload-identity-project-number (impl/opt-get (.workloadIdentityProjectNumber key)))
+    (.isPresent (.workloadIdentityProviderId key)) (assoc :workload-identity-provider-id (impl/opt-get (.workloadIdentityProviderId key)))))
+
+(defn external-key-create [^OpenAIClient client req]
+  (impl/with-api-errors
+    (let [^ExternalKeyService svc (.externalKeys (organization client))]
+      (external-key->map (.create svc (->external-key-create-params req))))))
+
+(defn external-key-retrieve [^OpenAIClient client id]
+  (impl/with-api-errors
+    (let [^ExternalKeyService svc (.externalKeys (organization client))]
+      (external-key->map (.retrieve svc (->external-key-retrieve-params id))))))
+
+(defn external-key-list
+  ([^OpenAIClient client] (external-key-list client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^ExternalKeyService svc (.externalKeys (organization client))
+           ^ExternalKeyListPage page (.list svc (->external-key-list-params opts))]
+       (mapv external-key->map (impl/all-pages page))))))
+
+(defn external-key-delete [^OpenAIClient client id]
+  (impl/with-api-errors
+    (let [^ExternalKeyService svc (.externalKeys (organization client))]
+      (external-key->map (.delete svc (->external-key-delete-params id))))))
+
+(defn external-key-validate [^OpenAIClient client id]
+  (impl/with-api-errors
+    (let [^ExternalKeyService svc (.externalKeys (organization client))
+          ^ExternalKeyValidateResponse response (.validate svc (->external-key-validate-params id))]
+      {:status (.status response)})))
 
 (defn- ->external-storage-create-params ^ExternalStorageCreateParams
   [{:keys [project-id provider]}]

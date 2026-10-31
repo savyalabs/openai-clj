@@ -10,6 +10,9 @@
                                              BetaResponse$AccessPrograms$Cyber
                                              BetaResponse$PromptCacheDiagnostics$CacheMiss
                                              BetaResponse$PromptCacheDiagnostics$CacheMiss$Reason
+                                             BetaResponse$ToolUsage
+                                             BetaResponse$ToolUsage$ImageGen
+                                             BetaResponse$ToolUsage$WebSearch
                                              BetaResponseStatus
                                              BetaResponseStreamEvent
                                              BetaResponseTextDeltaEvent
@@ -465,6 +468,45 @@
     (is (= {:type :cache-hit}
            (:prompt-cache-diagnostics
             (#'responses/beta-response->map cache-hit-response))))))
+
+(deftest beta-response-configuration-update-text-format-round-trips
+  (let [text (-> (com.openai.models.beta.responses.BetaResponseConfigurationUpdateItem$Text/builder)
+                 (.formatText)
+                 (.build))
+        item (-> (com.openai.models.beta.responses.BetaResponseConfigurationUpdateItem/builder)
+                 (.id "cfg_beta_text")
+                 (.text text)
+                 (.build))
+        mapped (#'responses/normalize-response-item (impl/sdk-object->clj item))
+        rebuilt (#'responses/->input-item mapped)]
+    (is (= {:type :configuration-update
+            :id "cfg_beta_text"
+            :text {:format {:type :text}}}
+           mapped))
+    (is (.isConfigurationUpdate rebuilt))
+    (is (.isText (-> rebuilt .asConfigurationUpdate .text impl/opt-get .format)))))
+
+(deftest beta-response-tool-usage-converts
+  (let [tool-usage (-> (BetaResponse$ToolUsage/builder)
+                       (.imageGen (-> (BetaResponse$ToolUsage$ImageGen/builder)
+                                      (.inputTokens 55)
+                                      (.inputTokensDetails
+                                       (-> (com.openai.models.beta.responses.BetaResponse$ToolUsage$ImageGen$InputTokensDetails/builder)
+                                           (.imageTokens 7)
+                                           (.textTokens 8)
+                                           (.build)))
+                                      (.outputTokens 66)
+                                      (.totalTokens 77)
+                                      (.build)))
+                       (.webSearch (-> (BetaResponse$ToolUsage$WebSearch/builder)
+                                       (.numRequests 88)
+                                       (.build)))
+                       (.build))
+        mapped (#'responses/beta-response->map
+                (-> (beta-response) .toBuilder (.toolUsage tool-usage) (.build)))]
+    (is (= 55 (get-in mapped [:tool-usage :image-gen :input-tokens])))
+    (is (= 66 (get-in mapped [:tool-usage :image-gen :output-tokens])))
+    (is (= 88 (get-in mapped [:tool-usage :web-search :num-requests])))))
 
 (deftest round-trips-beta-output-function-call-as-input
   (let [item (BetaResponseOutputItem/ofFunctionCall

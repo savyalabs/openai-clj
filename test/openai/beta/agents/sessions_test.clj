@@ -44,6 +44,19 @@
                                                     {:spend-control {:limit 24}})]
     (is (= 24 (.get (.limit (.get (.spendControl params))))))))
 
+(deftest session-review-converts
+  (let [session (impl/sdk-input-object
+                 {:id "sess_123" :created-at 1 :last-active-at 2
+                  :environment {:id "env_123" :status "ready" :type "openai_hosted"}
+                  :metadata {} :object "agent_session" :status "idle" :review "auto_review"}
+                 com.openai.models.beta.agents.AgentSession)]
+    (is (= :auto-review (:review (#'sessions/sdk-object->map session))))))
+
+(deftest session-list-metadata-filter-reaches-params
+  (let [params (#'sessions/->session-list-params {:metadata {:team "research"}})]
+    (is (= ["research"]
+           (vec (.values (._queryParams params) "metadata[team]"))))))
+
 (deftest session-spend-control-converts
   (let [session (impl/sdk-input-object
                  {:id "sess_123" :created-at 1 :last-active-at 2

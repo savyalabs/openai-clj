@@ -113,6 +113,13 @@
     (string? mask) (.mask b (.toPath (File. ^String mask)))
     :else (.mask b (->input-stream mask))))
 
+(defn- set-markup! [^ImageEditParams$Builder b markup filename]
+  (cond
+    filename (.markup b (->file-field markup filename))
+    (instance? Path markup) (.markup b ^Path markup)
+    (string? markup) (.markup b (.toPath (File. ^String markup)))
+    :else (.markup b (->input-stream markup))))
+
 (defn- set-variation-image! [^ImageCreateVariationParams$Builder b image filename]
   (cond
     filename (.image b (->file-field image filename))
@@ -121,7 +128,7 @@
     :else (.image b (->input-stream image))))
 
 (defn- ->edit-params ^ImageEditParams
-  [{:keys [image filename mask mask-filename prompt model n size response-format
+  [{:keys [image filename markup markup-filename mask mask-filename prompt model n size response-format
            background input-fidelity output-compression output-format
            partial-images quality safety-identifier user]}]
   (when-not image (impl/missing-key! :image))
@@ -129,6 +136,7 @@
   (let [^ImageEditParams$Builder b (ImageEditParams/builder)]
     (set-edit-image! b image filename)
     (.prompt b ^String prompt)
+    (when markup (set-markup! b markup markup-filename))
     (when mask (set-mask! b mask mask-filename))
     (when model (.model b ^String model))
     (when n (.n b (long n)))
