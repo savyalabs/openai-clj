@@ -15,15 +15,18 @@
                                                     SessionCreateParams$Agent$ServiceTier
                                                     SessionCreateParams$Input
                                                     SessionCreateParams$Metadata
+                                                    SessionCreateParams$Review
                                                     SessionCreateParams$SpendControl
                                                     SessionCreateParams$SpendControl$Builder
                                                     SessionDeleteParams
                                                     SessionListPage
                                                     SessionListParams
                                                     SessionListParams$Order
+                                                    SessionListParams$Metadata
                                                     SessionRetrieveParams
                                                     SessionUpdateParams
                                                     SessionUpdateParams$Metadata
+                                                    SessionUpdateParams$Review
                                                     SessionUpdateParams$SpendControl
                                                     SessionUpdateParams$SpendControl$Builder)
            (com.openai.services.blocking BetaService)
@@ -56,7 +59,7 @@
   (.convert (json-value x) target))
 
 (defn- normalize-map [x]
-  (let [enum-keys #{"object" "role" "status" "type"}]
+  (let [enum-keys #{"object" "role" "review" "status" "type"}]
     (walk/postwalk
      (fn [v]
        (if (map? v)
@@ -101,6 +104,13 @@
 (defn- ->update-metadata ^SessionUpdateParams$Metadata [metadata]
   (sdk-value metadata SessionUpdateParams$Metadata))
 
+(defn- ->session-list-metadata ^SessionListParams$Metadata [metadata]
+  (let [^com.openai.models.beta.agents.sessions.SessionListParams$Metadata$Builder
+        b (SessionListParams$Metadata/builder)]
+    (doseq [[k v] metadata]
+      (.putAdditionalProperty b (wire-name k) (str v)))
+    (.build b)))
+
 (defn- ->create-spend-control ^SessionCreateParams$SpendControl [{:keys [limit]}]
   (let [^SessionCreateParams$SpendControl$Builder b
         (SessionCreateParams$SpendControl/builder)]
@@ -114,7 +124,7 @@
     (.build b)))
 
 (defn- ->session-create-params ^SessionCreateParams
-  [{:keys [environment agent agent-id input metadata spend-control vault-ids] :as req}]
+  [{:keys [environment agent agent-id input metadata review spend-control vault-ids] :as req}]
   (when-not environment (impl/missing-key! :environment))
   (when-not (or agent-id agent) (impl/missing-key! :agent-id-or-agent))
   (let [b (SessionCreateParams/builder)]
@@ -123,10 +133,11 @@
     (when agent-id (.agentId b ^String agent-id))
     (when input (.input b (->input input)))
     (when metadata (.metadata b (->create-metadata metadata)))
+    (when review (.review b (SessionCreateParams$Review/of (impl/enum-name review))))
     (when spend-control (.spendControl b (->create-spend-control spend-control)))
     (when vault-ids (.vaultIds b ^java.util.List (vec vault-ids)))
     (doseq [[k v] (dissoc req :environment :agent :agent-id :input
-                          :metadata :spend-control :vault-ids)]
+                          :metadata :review :spend-control :vault-ids)]
       (.putAdditionalBodyProperty b (wire-name k) (json-value v)))
     (.build b)))
 
@@ -137,22 +148,24 @@
       (.build)))
 
 (defn- ->session-update-params ^SessionUpdateParams
-  [session-id {:keys [metadata spend-control] :as req}]
+  [session-id {:keys [metadata review spend-control] :as req}]
   (when-not session-id (impl/missing-key! :session-id))
   (let [b (SessionUpdateParams/builder)]
     (.sessionId b ^String session-id)
     (when metadata (.metadata b (->update-metadata metadata)))
+    (when review (.review b (SessionUpdateParams$Review/of (impl/enum-name review))))
     (when spend-control (.spendControl b (->update-spend-control spend-control)))
-    (doseq [[k v] (dissoc req :metadata :spend-control)]
+    (doseq [[k v] (dissoc req :metadata :review :spend-control)]
       (.putAdditionalBodyProperty b (wire-name k) (json-value v)))
     (.build b)))
 
 (defn- ->session-list-params ^SessionListParams
-  [{:keys [after agent-id limit order]}]
+  [{:keys [after agent-id limit metadata order]}]
   (let [b (SessionListParams/builder)]
     (when after (.after b ^String after))
     (when agent-id (.agentId b ^String agent-id))
     (when limit (.limit b (long limit)))
+    (when metadata (.metadata b (->session-list-metadata metadata)))
     (when order
       (.order b (SessionListParams$Order/of (impl/enum-name order))))
     (.build b)))

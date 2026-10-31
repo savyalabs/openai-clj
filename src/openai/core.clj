@@ -579,6 +579,7 @@
     :code-interpreter-call (impl/sdk-input-object item ResponseInputItem)
     :compaction (impl/sdk-input-object item ResponseInputItem)
     :compaction-trigger (impl/sdk-input-object item ResponseInputItem)
+    :configuration-update (impl/sdk-input-object item ResponseInputItem)
     :computer-call (impl/sdk-input-object item ResponseInputItem)
     :function-call-output (->function-call-output item)
     :function-call (impl/sdk-input-object item ResponseInputItem)
@@ -1165,7 +1166,10 @@
                        (impl/opt-get (.reasoning c))]
                  (cond-> {}
                    (.isPresent (.effort r))
-                   (assoc :effort (impl/->keyword (.asString ^com.openai.models.ReasoningEffort (impl/opt-get (.effort r))))))))))
+                   (assoc :effort (impl/->keyword (.asString ^com.openai.models.ReasoningEffort (impl/opt-get (.effort r))))))))
+        (.isPresent (.text c))
+        (assoc :text (update-in (impl/sdk-object->clj (impl/opt-get (.text c)))
+                                [:format :type] impl/->keyword))))
     :else {:type :unknown}))
 
 (defn- usage->map [^ResponseUsage u]
@@ -1217,6 +1221,8 @@
              :created-at (.createdAt r)}
       (.isPresent (.status r)) (assoc :status (impl/->keyword (.asString ^ResponseStatus (.get (.status r)))))
       (.isPresent (.usage r)) (assoc :usage (usage->map (.get (.usage r))))
+      (.isPresent (.toolUsage r))
+      (assoc :tool-usage (impl/sdk-object->clj (.get (.toolUsage r))))
       (.isPresent (.error r)) (assoc :error (error->map (.get (.error r))))
       (.isPresent (.incompleteDetails r)) (assoc :incomplete-details (incomplete-details->map (.get (.incompleteDetails r))))
       (.isPresent (.previousResponseId r)) (assoc :previous-response-id (.get (.previousResponseId r)))

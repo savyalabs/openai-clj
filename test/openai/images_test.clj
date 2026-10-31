@@ -63,6 +63,16 @@
     (is (= [112 110 103]
            (vec (.readAllBytes (.asInputStream (.image p))))))))
 
+(deftest image-edit-markup-overlay-builds-params
+  (let [p (edit-params {:image (.getBytes "png" "UTF-8")
+                        :prompt "annotate"
+                        :markup (.getBytes "svg" "UTF-8")
+                        :markup-filename "overlay.svg"})
+        field (._markup p)]
+    (is (= "overlay.svg" (opt (.filename field))))
+    (is (= [115 118 103]
+           (vec (.readAllBytes (opt (.markup p))))))))
+
 (deftest converts-images-response
   (let [image (-> (Image/builder)
                   (.b64Json "encoded")

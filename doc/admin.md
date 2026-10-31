@@ -13,6 +13,12 @@ and `spend-limit-delete`. Project spend limits use the same functions in
 `openai.admin.projects`, with a project ID. Use `service-account-api-key-create`
 with project and service-account IDs to create a service-account API key.
 
+External key management uses `external-key-create`, `external-key-retrieve`,
+`external-key-list`, `external-key-delete`, and `external-key-validate`.
+Create requests use a tagged provider map, such as `{:type :aws :name "..."
+:external-id "..." :kms-arn "..." :role-arn "..."}`. Azure and GCP variants
+use their SDK provider fields with kebab-case keys.
+
 `usage-costs` requires `:start-time` and accepts `:end-time`, `:bucket-width`,
 `:group-by`, `:limit`, `:page`, `:api-key-ids`, `:line-items`, and
 `:project-ids`.

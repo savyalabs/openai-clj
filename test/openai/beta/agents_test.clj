@@ -144,6 +144,16 @@
     (is (= [{:type "automations"}]
            (:tools (agent->map response))))))
 
+(deftest agent-compaction-and-time-awareness-build-params
+  (let [build-params (resolve-agents-var '->agent-create-params)
+        ^AgentCreateParams p (build-params {:model "gpt-5"
+                                            :compaction {:async true}
+                                            :experimental {:time-awareness true}})]
+    (is (= {:async true}
+           (json-value->clj (get (._additionalBodyProperties p) "compaction"))))
+    (is (= {:time_awareness true}
+           (json-value->clj (get (._additionalBodyProperties p) "experimental"))))))
+
 (deftest retrieves-agent-and-normalizes-response
   (let [build-params (resolve-agents-var '->agent-retrieve-params)
         retrieve-agent (resolve-agents-var 'retrieve)]

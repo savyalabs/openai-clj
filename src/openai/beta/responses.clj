@@ -319,6 +319,7 @@
     :code-interpreter-call (impl/sdk-input-object item BetaResponseInputItem)
     :compaction (impl/sdk-input-object item BetaResponseInputItem)
     :compaction-trigger (impl/sdk-input-object item BetaResponseInputItem)
+    :configuration-update (impl/sdk-input-object item BetaResponseInputItem)
     :computer-call (impl/sdk-input-object item BetaResponseInputItem)
     :function-call-output (->function-call-output item)
     :function-call (impl/sdk-input-object item BetaResponseInputItem)
@@ -787,7 +788,8 @@
         (assoc :reasoning
                (cond-> {}
                  (get-in item [:reasoning :effort])
-                 (assoc :effort (impl/->keyword (get-in item [:reasoning :effort]))))))
+                 (assoc :effort (impl/->keyword (get-in item [:reasoning :effort])))))
+        (:text item) (assoc :text (:text item)))
       item)))
 
 (defn- normalize-error [error]
@@ -822,6 +824,7 @@
              :created-at (:created-at m)}
       (:status m) (assoc :status (:status m))
       (:usage m) (assoc :usage (:usage m))
+      (:tool-usage m) (assoc :tool-usage (:tool-usage m))
       (:error m) (assoc :error (normalize-error (:error m)))
       (:incomplete-details m) (assoc :incomplete-details (:incomplete-details m))
       (:previous-response-id m) (assoc :previous-response-id (:previous-response-id m))

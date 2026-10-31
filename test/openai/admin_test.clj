@@ -6,6 +6,7 @@
   (:import (com.openai.models.admin.organization.adminapikeys AdminApiKeyCreateParams)
            (com.openai.models.admin.organization.auditlogs AuditLogListParams AuditLogListParams$EventType AuditLogListResponse AuditLogListResponse$Builder AuditLogListResponse$ExternalStorageRegistered AuditLogListResponse$Type)
            (com.openai.models.admin.organization.externalstorage ExternalStorageConfiguration ExternalStorageConfiguration$Status ExternalStorageCreateParams ExternalStorageDeleteParams ExternalStorageListParams ExternalStorageListParams$Order ExternalStorageRetrieveParams ExternalStorageValidateParams GcpExternalStorageProvider OciExternalStorageProvider)
+           (com.openai.models.admin.organization.externalkeys ExternalKey ExternalKeyCreateParams ExternalKeyListParams)
            (com.openai.models.admin.organization.groups Group Group$Builder GroupCreateParams)
            (com.openai.models.admin.organization.groups.users UserCreateParams)
            (com.openai.models.admin.organization.invites Invite Invite$Builder Invite$Role Invite$Status)
@@ -30,6 +31,62 @@
                                                       UsageCostsResponse$Data$Result$OrganizationCostsResult
                                                       UsageCostsResponse$Data$Result$OrganizationCostsResult$ApiSource)))
 (set! *warn-on-reflection* true)
+
+(deftest external-key-create-aws-builds-params
+  (let [^ExternalKeyCreateParams p (#'admin/->external-key-create-params
+                                     {:type :aws :name "key" :external-id "id"
+                                      :kms-arn "arn:kms" :role-arn "arn:role"
+                                      :purpose :ekm})
+        body (.body p)]
+    (is (.isAws body))
+    (is (= "key" (.name (.asAws body))))
+    (is (= "arn:role" (.roleArn (.asAws body))))))
+
+(deftest external-key-create-azure-builds-params
+  (let [^ExternalKeyCreateParams p (#'admin/->external-key-create-params
+                                     {:type :azure :name "key" :key-name "master"
+                                      :tenant-id "tenant" :vault-uri "https://vault"})
+        body (.body p)]
+    (is (.isAzure body))
+    (is (= "master" (.keyName (.asAzure body))))
+    (is (= "tenant" (.tenantId (.asAzure body))))))
+
+(deftest external-key-create-gcp-builds-params
+  (let [^ExternalKeyCreateParams p (#'admin/->external-key-create-params
+                                     {:type :gcp :name "key" :audience "aud"
+                                      :kms-key-location "us" :kms-key-name "key"
+                                      :kms-key-ring-name "ring" :kms-project-id "project"
+                                      :workload-identity-pool-id "pool"
+                                      :workload-identity-project-number "123"
+                                      :workload-identity-provider-id "provider"})
+        body (.body p)]
+    (is (.isGcp body))
+    (is (= "project" (.kmsProjectId (.asGcp body))))
+    (is (= "pool" (.workloadIdentityPoolId (.asGcp body))))))
+
+(deftest external-key-create-requires-type
+  (is (= {:openai/error :missing-key :key :type}
+         (try (#'admin/->external-key-create-params {})
+              (catch clojure.lang.ExceptionInfo e (ex-data e))))))
+
+(deftest external-key-validate-round-trips
+  (let [key (impl/sdk-input-object
+             {:id "ek_1" :api-project-ids ["proj_1"] :created-at 1 :name "key"
+              :object "external_key" :type "aws" :workspace-id "ws_1"
+              :purpose "ekm" :role-arn "arn:role"}
+             ExternalKey)]
+    (is (= {:id "ek_1" :api-project-ids ["proj_1"] :created-at 1 :name "key"
+            :object "external_key" :type "aws" :workspace-id "ws_1"
+            :purpose :ekm :role-arn "arn:role"}
+           (#'admin/external-key->map key)))))
+
+(deftest external-key-list-builds-params
+  (let [^ExternalKeyListParams p (#'admin/->external-key-list-params
+                                    {:after "ek_1" :limit 10 :order :asc :purpose :psp-decryption})]
+    (is (= "ek_1" (impl/opt-get (.after p))))
+    (is (= 10 (impl/opt-get (.limit p))))
+    (is (= "asc" (str (impl/opt-get (.order p)))))
+    (is (= "psp_decryption" (str (impl/opt-get (.purpose p)))))))
 (deftest translates-project-create
   (let [^ProjectCreateParams p (#'admin/->project-create-params
                                  {:name "research" :external-key-id "ext_123"

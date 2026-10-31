@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-10-31
+
+### Added
+
+- Add organization external-key create, retrieve, list, delete, and validation
+  wrappers with AWS, Azure, and GCP request variants.
+- Support Agent compaction, experimental time awareness, session review and
+  metadata filters, and image edit markup overlays.
+- Pass Responses configuration-update text formats and response `:tool-usage`
+  through, stable and beta.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.95.0.
+
 ## [0.44.1] - 2026-10-27
 
 ### Changed

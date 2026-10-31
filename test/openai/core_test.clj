@@ -30,6 +30,7 @@
                                                ChatCompletionMessageParam
                                                ChatCompletionStoreMessage)
            (com.openai.models.completions CompletionUsage)
+           (com.openai.models ResponseFormatText)
            (com.openai.models.models Model)
            (com.openai.models.responses ResponseCreateParams
                                         ResponseCreateParams$AccessPrograms$Cyber
@@ -41,6 +42,9 @@
                                         Response$IncompleteDetails$Reason
                                         Response$PromptCacheDiagnostics$CacheMiss
                                         Response$PromptCacheDiagnostics$CacheMiss$Reason
+                                        Response$ToolUsage
+                                        Response$ToolUsage$ImageGen
+                                        Response$ToolUsage$WebSearch
                                         ResponseCompletedEvent
                                         ResponseCreatedEvent
                                         ResponseCompactionCompactingEvent
@@ -2452,6 +2456,45 @@
         mapped (response-item->map item)]
     (is (= {:type :configuration-update :id "cfg_2"} mapped))
     (is (not (contains? mapped :reasoning)))))
+
+(deftest response-configuration-update-text-format-round-trips
+  (let [text-format (-> (ResponseFormatText/builder)
+                        (.type (JsonValue/from "text"))
+                        (.build))
+        item (ResponseItem/ofConfigurationUpdate
+              (-> (com.openai.models.responses.ResponseConfigurationUpdateItem/builder)
+                  (.id "cfg_text")
+                  (.formatText text-format)
+                  (.build)))
+        mapped (response-item->map item)
+        rebuilt (openai/response-input-item mapped)]
+    (is (= {:type :configuration-update
+            :id "cfg_text"
+            :text {:format {:type :text}}}
+           mapped))
+    (is (.isConfigurationUpdate rebuilt))
+    (is (.isText (-> rebuilt .asConfigurationUpdate .text impl/opt-get .format)))))
+
+(deftest response-tool-usage-converts
+  (let [tool-usage (-> (Response$ToolUsage/builder)
+                       (.imageGen (-> (Response$ToolUsage$ImageGen/builder)
+                                      (.inputTokens 11)
+                                      (.inputTokensDetails
+                                       (-> (com.openai.models.responses.Response$ToolUsage$ImageGen$InputTokensDetails/builder)
+                                           (.imageTokens 5)
+                                           (.textTokens 6)
+                                           (.build)))
+                                      (.outputTokens 22)
+                                      (.totalTokens 33)
+                                      (.build)))
+                       (.webSearch (-> (Response$ToolUsage$WebSearch/builder)
+                                       (.numRequests 44)
+                                       (.build)))
+                       (.build))
+        mapped (response->map (-> (response []) .toBuilder (.toolUsage tool-usage) (.build)))]
+    (is (= 11 (get-in mapped [:tool-usage :image-gen :input-tokens])))
+    (is (= 22 (get-in mapped [:tool-usage :image-gen :output-tokens])))
+    (is (= 44 (get-in mapped [:tool-usage :web-search :num-requests])))))
 
 (deftest maps-response-error-misalignment
   (let [misalignment (-> (com.openai.models.responses.ResponseError$Misalignment/builder)
