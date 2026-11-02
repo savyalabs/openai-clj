@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.45.1] - 2026-11-01
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.96.0. Upstream only added a `generate` option to Responses WebSocket `response.create` events; this library has no Responses WebSocket client-event surface to extend.
+
 ## [0.45.0] - 2026-10-31
 
 ### Added
