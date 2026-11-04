@@ -12,6 +12,7 @@
            (com.openai.models.admin.organization.invites Invite Invite$Builder Invite$Role Invite$Status)
            (com.openai.models.admin.organization.projects Project ProjectCreateParams)
            (com.openai.models.admin.organization.projects.apikeys ApiKeyListParams ApiKeyListParams$OwnerProjectAccess ApiKeyUpdateParams ProjectApiKey ProjectApiKey$Owner ProjectApiKey$OwnerProjectAccess)
+           (com.openai.models.admin.organization.projects.servicetiersettings ProjectOptionalServiceTier ProjectServiceTierSettings ProjectServiceTierSettings$Default ServiceTierSettingRetrieveParams ServiceTierSettingUpdateParams ServiceTierSettingUpdateParams$Default ServiceTierSettingUpdateParams$EnabledTiers)
            (com.openai.models.admin.organization.projects.ratelimits ProjectRateLimit RateLimitUpdateRateLimitParams)
            (com.openai.models.admin.organization.projects.serviceaccounts ProjectServiceAccount ServiceAccountCreateParams ServiceAccountCreateResponse ServiceAccountCreateResponse$ApiKey ServiceAccountCreateResponse$Role)
            (com.openai.models.admin.organization.projects.serviceaccounts.apikeys ApiKeyCreateResponse)
@@ -435,9 +436,16 @@
 (deftest exposes-typed-project-admin-helpers
   (doseq [sym '[->group-create-params project-api-key->map user-role-list->map
                 ->service-account-create-params service-account->map
+                ->service-tier-settings-retrieve-params ->service-tier-settings-update-params
+                project-service-tier-settings->map
                 ->rate-limit-update-params rate-limit->map]]
     (is (fn? (some-> (ns-resolve 'openai.admin.projects sym) deref))
         (str sym " should be defined"))))
+
+(deftest exposes-project-service-tier-settings-helpers
+  (doseq [sym '[service-tier-settings-retrieve service-tier-settings-update]]
+    (is (fn? (some-> (ns-resolve 'openai.admin.projects sym) deref))
+        (str sym " should be callable"))))
 
 (deftest builds-project-group-create-params
   (when-let [f (some-> (ns-resolve 'openai.admin.projects '->group-create-params) deref)]
@@ -481,6 +489,58 @@
     (is (= {:id "key_1" :created-at 123 :name "Deploy" :owner {}
             :redacted-value "sk-...abc"}
            (f key)))))
+
+(deftest service-tier-settings-retrieve-builds-params
+  (let [^ServiceTierSettingRetrieveParams p
+        (#'projects/->service-tier-settings-retrieve-params "proj_1")]
+    (is (= "proj_1" (impl/opt-get (.projectId p))))))
+
+(deftest service-tier-settings-retrieve-requires-project-id
+  (is (thrown? clojure.lang.ExceptionInfo
+               (#'projects/->service-tier-settings-retrieve-params nil))))
+
+(deftest service-tier-settings-retrieve-round-trips
+  (let [settings (-> (ProjectServiceTierSettings/builder)
+                     (.default_ ProjectServiceTierSettings$Default/FAST)
+                     (.enabledTiersOfProjectOptionalService
+                      [ProjectOptionalServiceTier/FLEX ProjectOptionalServiceTier/ULTRAFAST])
+                     (.build))]
+    (is (= {:default :fast :enabled-tiers [:flex :ultrafast]}
+           (#'projects/project-service-tier-settings->map settings)))
+    (is (thrown? IllegalStateException
+                 (-> (ProjectServiceTierSettings/builder)
+                     (.enabledTiersAll)
+                     (.build))))))
+
+(deftest service-tier-settings-update-builds-params
+  (let [^ServiceTierSettingUpdateParams p
+        (#'projects/->service-tier-settings-update-params
+         "proj_1" {:default :scale :enabled-tiers [:fast :ultrafast]})]
+    (is (= "proj_1" (impl/opt-get (.projectId p))))
+    (is (= "scale" (.asString ^ServiceTierSettingUpdateParams$Default
+                                (impl/opt-get (.default_ p)))))
+    (is (= ["fast" "ultrafast"]
+           (mapv #(.asString ^ProjectOptionalServiceTier %)
+                 (.asProjectOptionalService
+                  ^ServiceTierSettingUpdateParams$EnabledTiers
+                  (impl/opt-get (.enabledTiers p))))))))
+
+(deftest service-tier-settings-update-requires-project-id
+  (is (thrown? clojure.lang.ExceptionInfo
+               (#'projects/->service-tier-settings-update-params
+                nil {:default :standard :enabled-tiers :all}))))
+
+(deftest service-tier-settings-update-round-trips
+  (let [settings (-> (ProjectServiceTierSettings/builder)
+                     (.default_ ProjectServiceTierSettings$Default/STANDARD)
+                     (.enabledTiersAll)
+                     (.build))]
+    (is (= {:default :standard :enabled-tiers :all}
+           (#'projects/project-service-tier-settings->map settings)))
+    (is (thrown? IllegalStateException
+                 (-> (ProjectServiceTierSettings/builder)
+                     (.default_ ProjectServiceTierSettings$Default/STANDARD)
+                     (.build))))))
 
 (deftest converts-project-api-key-present-only
   (when-let [f (some-> (ns-resolve 'openai.admin.projects 'project-api-key->map) deref)]

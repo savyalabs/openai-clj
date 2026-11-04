@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-04
+
+### Added
+
+- Add project service-tier settings retrieval and updates, including keyword
+  default and enabled-tier maps.
+- Preserve stable and beta Responses cache-write token details by TTL, and
+  accept the `:12h` prompt-cache option TTL.
+- Preserve the `gpt-6-rosalind` Responses model name.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.99.0.
+
 ## [0.46.0] - 2026-11-03
 
 ### Added

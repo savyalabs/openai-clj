@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.46.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.47.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.46.0"]
+[net.clojars.savya/openai-clj "0.47.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.98.0](https://github.com/openai/openai-java/releases/tag/v4.98.0).
+Tracks [`com.openai/openai-java` 4.99.0](https://github.com/openai/openai-java/releases/tag/v4.99.0).
 
 ## Providers
 
@@ -474,6 +474,9 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
 (admin-projects/service-account-list admin-client "proj_...")
 (admin-projects/api-key-update admin-client "proj_..." "key_..."
                                {:expires-in-seconds 3600})
+(admin-projects/service-tier-settings-update admin-client "proj_..."
+                                             {:default :fast
+                                              :enabled-tiers [:fast :ultrafast]})
 ```
 
 Webhook endpoint management is available from `openai.webhooks`: `create`,
@@ -495,8 +498,9 @@ the beta multi-agent orchestration platform - see "Beta Agents API" above.
 create/retrieve/list/delete/validation, workload-identity-provider CRUD/list, and
 per-provider federation-rule CRUD/list operations, plus organization usage reporting
 including `usage-decisions`. `openai.admin.projects` includes project
-API key update via `api-key-update`. `openai.safety` includes safety alert and
-safety case retrieval.
+API key update via `api-key-update`, and service-tier settings retrieval and
+update via `service-tier-settings-retrieve` and `service-tier-settings-update`.
+`openai.safety` includes safety alert and safety case retrieval.
 `openai.graders` maps to the stable grader-model service. Model names are passed
 through as strings, including `"gpt-6-astra"` and `"gpt-6.1-sol"`. The service exposes
 no operations in SDK 4.62.0.
