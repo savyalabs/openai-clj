@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-03
+
+### Added
+
+- Add organization workload-identity-provider and per-provider federation-rule
+  create, retrieve, update, delete, and list wrappers.
+- Pass Live Responses delegation configuration, including shell container
+  settings, through to the SDK.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.98.0.
+
 ## [0.45.1] - 2026-11-01
 
 ### Changed

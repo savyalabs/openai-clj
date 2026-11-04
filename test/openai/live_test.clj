@@ -57,6 +57,24 @@
         ^ClientDelegation client (.asClient delegation)]
     (is (= 250 (.get (.acknowledgementDelayMs client))))))
 
+(deftest live-responses-delegation-passes-shell-container-settings
+  (let [^LiveCreateParams p (#'live/->live-create-params
+                              {:session {:model "gpt-live-1"
+                                         :delegation {:type :responses
+                                                      :responses {:model "gpt-5"
+                                                                  :tools [{:type :shell
+                                                                           :environment {:type :container-auto
+                                                                                         :memory-limit :4g
+                                                                                         :file-ids ["file_1"]}}]}}}
+                               :transport {:sdp "offer"}})
+        delegation (.asResponses (.get (.delegation (.session p))))
+        responses (.responses delegation)
+        shell (.asShell (first (.get (.tools responses))))
+        environment (.asContainerAuto (.get (.environment shell)))]
+    (is (= "gpt-5" (.model responses)))
+    (is (= "4g" (.asString (.get (.memoryLimit environment)))))
+    (is (= ["file_1"] (.get (.fileIds environment))))))
+
 (deftest creates-live-session-and-normalizes-response
   (let [build-params (ns-resolve 'openai.live '->live-create-params)
         live-create (ns-resolve 'openai.live 'live-create)]
