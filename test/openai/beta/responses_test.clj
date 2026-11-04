@@ -18,6 +18,7 @@
                                              BetaResponseTextDeltaEvent
                                              BetaResponseUsage
                                              BetaResponseUsage$InputTokensDetails
+                                             BetaResponseUsage$InputTokensDetails$CacheWriteTokensDetails
                                              BetaResponseUsage$OutputTokensDetails
                                              BetaResponseFunctionToolCall
                                              BetaResponseOutputItem
@@ -150,7 +151,7 @@
                                   :compact-threshold 2000}]
             :prompt-cache-retention "24h"
             :prompt-cache-options {:mode :standard
-                                   :ttl :24h
+                                   :ttl :12h
                                    :comparison-response-id "resp_123"
                                    :prewarm true}})
         prompt (impl/opt-get (.prompt p))
@@ -172,6 +173,7 @@
     (is (= "compaction" (.type context)))
     (is (= 2000 (impl/opt-get (.compactThreshold context))))
     (is (= "24h" (.asString (impl/opt-get (.promptCacheRetention p)))))
+    (is (= "12h" (-> p .promptCacheOptions impl/opt-get .ttl impl/opt-get .asString)))
     (is (= "resp_123"
            (-> p .promptCacheOptions impl/opt-get .comparisonResponseId impl/opt-get)))
     (is (true? (-> p .promptCacheOptions impl/opt-get .prewarm impl/opt-get)))
@@ -409,6 +411,29 @@
                   :output-tokens-details {:reasoning-tokens 0}
                   :total-tokens 30}}
          (#'responses/beta-response->map (beta-response)))))
+
+(deftest maps-beta-response-usage-cache-write-tokens-details
+  (let [usage (-> (BetaResponseUsage/builder)
+                  (.inputTokens 10)
+                  (.inputTokensDetails
+                   (-> (BetaResponseUsage$InputTokensDetails/builder)
+                       (.cacheWriteTokens 0)
+                       (.cachedTokens 0)
+                       (.cacheWriteTokensDetails
+                        (-> (BetaResponseUsage$InputTokensDetails$CacheWriteTokensDetails/builder)
+                            (.ttl12hTokens 3)
+                            (.ttl30mTokens 7)
+                            (.build)))
+                       (.build)))
+                  (.outputTokens 20)
+                  (.outputTokensDetails
+                   (-> (BetaResponseUsage$OutputTokensDetails/builder) (.reasoningTokens 0) (.build)))
+                  (.totalTokens 30)
+                  (.build))]
+    (is (= {:ttl-12h-tokens 3 :ttl-30m-tokens 7}
+           (get-in (#'responses/beta-response->map
+                    (-> (beta-response) .toBuilder (.usage usage) (.build)))
+                   [:usage :input-tokens-details :cache-write-tokens-details])))))
 
 (deftest maps-beta-response-prompt-fields
   (let [prompt (-> (com.openai.models.beta.responses.BetaResponsePrompt/builder)

@@ -2,7 +2,7 @@
 
 `openai.admin` covers organization resources and usage. `openai.admin.projects`
 covers project-scoped API keys, service accounts, limits, permissions, users,
-groups, roles, retention, spend alerts, and certificates.
+groups, roles, retention, spend alerts, certificates, and service-tier settings.
 
 Admin wrappers take positional resource IDs such as project, group, user, and
 role. They then take a kebab-case map for optional body or query values. This
@@ -12,6 +12,8 @@ Organization spend limits use `spend-limit-retrieve`, `spend-limit-update`,
 and `spend-limit-delete`. Project spend limits use the same functions in
 `openai.admin.projects`, with a project ID. Use `service-account-api-key-create`
 with project and service-account IDs to create a service-account API key.
+Use `service-tier-settings-retrieve` and `service-tier-settings-update` with a
+project ID to manage the project default and enabled service tiers.
 
 External key management uses `external-key-create`, `external-key-retrieve`,
 `external-key-list`, `external-key-delete`, and `external-key-validate`.

@@ -8,12 +8,13 @@
            (com.openai.models.admin.organization.projects.dataretention DataRetentionRetrieveParams DataRetentionUpdateParams DataRetentionUpdateParams$RetentionType ProjectDataRetention)
            (com.openai.models.admin.organization.projects.groups GroupCreateParams GroupDeleteParams GroupDeleteResponse GroupListPage GroupListParams GroupListParams$Order GroupRetrieveParams GroupRetrieveParams$GroupType ProjectGroup)
            (com.openai.models.admin.organization.projects.serviceaccounts.apikeys ApiKeyCreateParams ApiKeyCreateResponse)
+           (com.openai.models.admin.organization.projects.servicetiersettings ProjectOptionalServiceTier ProjectServiceTierSettings ServiceTierSettingRetrieveParams ServiceTierSettingUpdateParams ServiceTierSettingUpdateParams$Default)
            (com.openai.models.admin.organization.projects.spendlimit ProjectSpendLimit ProjectSpendLimitDeleted SpendLimitUpdateParams SpendLimitUpdateParams$Currency SpendLimitUpdateParams$Interval)
            (com.openai.models.admin.organization.roles Role)
            (com.openai.models.admin.organization.users OrganizationUser)
            (com.openai.services.blocking.admin OrganizationService)
            (com.openai.services.blocking.admin.organization ProjectService)
-           (com.openai.services.blocking.admin.organization.projects ApiKeyService CertificateService DataRetentionService GroupService SpendLimitService)
+           (com.openai.services.blocking.admin.organization.projects ApiKeyService CertificateService DataRetentionService GroupService ServiceTierSettingService SpendLimitService)
            (com.openai.services.blocking.admin.organization.projects.groups RoleService)))
 
 (set! *warn-on-reflection* true)
@@ -94,6 +95,46 @@
           p (-> (ApiKeyDeleteParams/builder) (.projectId project-id) (.apiKeyId key-id) (.build))
           ^ApiKeyDeleteResponse r (.delete svc p)]
       {:id (.id r) :deleted (.deleted r)})))
+
+;; Service tier settings
+
+(defn- ->service-tier-settings-retrieve-params ^ServiceTierSettingRetrieveParams [^String project-id]
+  (when-not project-id (impl/missing-key! :project-id))
+  (-> (ServiceTierSettingRetrieveParams/builder) (.projectId project-id) (.build)))
+
+(defn- ->service-tier-settings-update-params ^ServiceTierSettingUpdateParams
+  [^String project-id {:keys [default enabled-tiers]}]
+  (when-not project-id (impl/missing-key! :project-id))
+  (let [b (ServiceTierSettingUpdateParams/builder)]
+    (.projectId b project-id)
+    (when default
+      (.default_ b (ServiceTierSettingUpdateParams$Default/of (impl/enum-name default))))
+    (when enabled-tiers
+      (if (= :all enabled-tiers)
+        (.enabledTiersAll b)
+        (.enabledTiersOfProjectOptionalService
+         b ^java.util.List
+         (mapv #(ProjectOptionalServiceTier/of (impl/enum-name %)) enabled-tiers))))
+    (.build b)))
+
+(defn- project-service-tier-settings->map [^ProjectServiceTierSettings settings]
+  (let [tiers (.enabledTiers settings)]
+    {:default (impl/->keyword (.default_ settings))
+     :enabled-tiers (if (.isAll tiers)
+                      :all
+                      (mapv #(impl/->keyword %) (.asProjectOptionalService tiers)))}))
+
+(defn service-tier-settings-retrieve [^OpenAIClient client ^String project-id]
+  (impl/with-api-errors
+    (let [^ServiceTierSettingService svc (.serviceTierSettings (projects-service client))]
+      (project-service-tier-settings->map
+       (.retrieve svc (->service-tier-settings-retrieve-params project-id))))))
+
+(defn service-tier-settings-update [^OpenAIClient client ^String project-id opts]
+  (impl/with-api-errors
+    (let [^ServiceTierSettingService svc (.serviceTierSettings (projects-service client))]
+      (project-service-tier-settings->map
+       (.update svc (->service-tier-settings-update-params project-id opts))))))
 
 ;; Certificates
 

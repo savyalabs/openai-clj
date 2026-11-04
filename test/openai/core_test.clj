@@ -104,6 +104,7 @@
                                         ResponseTextDoneEvent
                                         ResponseUsage
                                         ResponseUsage$InputTokensDetails
+                                        ResponseUsage$InputTokensDetails$CacheWriteTokensDetails
                                         ResponseUsage$OutputTokensDetails
                                         ToolChoiceOptions)
            (com.openai.models.responses.inputitems InputItemListParams
@@ -387,7 +388,7 @@
                    :truncation :auto
                    :prompt-cache-key "cache-key"
                    :prompt-cache-options {:mode :standard
-                                          :ttl :24h
+                                          :ttl :12h
                                           :comparison-response-id "resp_123"
                                           :prewarm true}
                    :safety-identifier "safe-user"
@@ -408,7 +409,7 @@
     (is (= "auto" (.asString (opt (.truncation p)))))
     (is (= "cache-key" (opt (.promptCacheKey p))))
     (is (= "standard" (-> p .promptCacheOptions opt .mode opt .asString)))
-    (is (= "24h" (-> p .promptCacheOptions opt .ttl opt .asString)))
+    (is (= "12h" (-> p .promptCacheOptions opt .ttl opt .asString)))
     (is (= "resp_123" (-> p .promptCacheOptions opt .comparisonResponseId opt)))
     (is (true? (opt (-> p .promptCacheOptions opt .prewarm))))
     (is (= "safe-user" (opt (.safetyIdentifier p))))
@@ -449,6 +450,10 @@
                            :messages [{:role :user :content "hi"}]})]
     (is (= "gpt-6.1-terra" (.asString (opt (.model response)))))
     (is (= "gpt-6.1-terra" (.asString (.model chat))))))
+
+(deftest gpt-6-rosalind-model-passes-through
+  (let [response (params {:model "gpt-6-rosalind" :input "hi"})]
+    (is (= "gpt-6-rosalind" (.asString (opt (.model response)))))))
 
 (deftest translates-ultrafast-service-tier
   (let [response-params (params {:model "gpt-5.2" :input "hi" :service-tier :ultrafast})
@@ -1219,6 +1224,30 @@
 
 (deftest maps-response-usage-without-compute-units
   (is (not (contains? (:usage (response->map (response []))) :compute-units))))
+
+(deftest maps-response-usage-cache-write-tokens-details
+  (let [usage (-> (ResponseUsage/builder)
+                  (.inputTokens 10)
+                  (.inputTokensDetails
+                   (-> (ResponseUsage$InputTokensDetails/builder)
+                       (.cacheWriteTokens 0)
+                       (.cachedTokens 0)
+                       (.cacheWriteTokensDetails
+                        (-> (ResponseUsage$InputTokensDetails$CacheWriteTokensDetails/builder)
+                            (.ttl12hTokens 3)
+                            (.ttl30mTokens 7)
+                            (.build)))
+                       (.build)))
+                  (.outputTokens 20)
+                  (.outputTokensDetails
+                   (-> (ResponseUsage$OutputTokensDetails/builder)
+                       (.reasoningTokens 0)
+                       (.build)))
+                  (.totalTokens 30)
+                  (.build))]
+    (is (= {:ttl-12h-tokens 3 :ttl-30m-tokens 7}
+           (get-in (response->map (-> (response []) .toBuilder (.usage usage) (.build)))
+                   [:usage :input-tokens-details :cache-write-tokens-details])))))
 
 (deftest maps-response-to-clojure
   (let [m (response->map (response [(message-item)

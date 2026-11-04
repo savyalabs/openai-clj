@@ -1174,12 +1174,18 @@
 
 (defn- usage->map [^ResponseUsage u]
   (let [details (.inputTokensDetails u)]
-    {:input-tokens (.inputTokens u)
-     :input-tokens-details
-     {:cache-write-tokens (.cacheWriteTokens details)
-      :cached-tokens (.cachedTokens details)}
-     :output-tokens (.outputTokens u)
-     :total-tokens (.totalTokens u)}))
+    (cond-> {:input-tokens (.inputTokens u)
+             :input-tokens-details
+             {:cache-write-tokens (.cacheWriteTokens details)
+              :cached-tokens (.cachedTokens details)}
+             :output-tokens (.outputTokens u)
+             :total-tokens (.totalTokens u)}
+      (.isPresent (.cacheWriteTokensDetails details))
+      (assoc-in [:input-tokens-details :cache-write-tokens-details]
+                (let [^com.openai.models.responses.ResponseUsage$InputTokensDetails$CacheWriteTokensDetails
+                      cache-write-details (impl/opt-get (.cacheWriteTokensDetails details))]
+                  {:ttl-12h-tokens (.ttl12hTokens cache-write-details)
+                   :ttl-30m-tokens (.ttl30mTokens cache-write-details)})))))
 
 (defn- error->map [^ResponseError e]
   (cond-> {:code (impl/->keyword (.asString (.code e)))
