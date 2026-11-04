@@ -16,8 +16,11 @@
            (com.openai.models.admin.organization.spendalerts OrganizationSpendAlert OrganizationSpendAlertDeleted OrganizationSpendAlert$NotificationChannel SpendAlertCreateParams SpendAlertCreateParams$Currency SpendAlertCreateParams$Interval SpendAlertCreateParams$NotificationChannel SpendAlertListPage SpendAlertListParams SpendAlertListParams$Order SpendAlertUpdateParams SpendAlertUpdateParams$Currency SpendAlertUpdateParams$Interval SpendAlertUpdateParams$NotificationChannel)
            (com.openai.models.admin.organization.roles Role RoleCreateParams RoleDeleteResponse RoleListPage RoleListParams RoleListParams$Order RoleUpdateParams)
            (com.openai.models.admin.organization.users OrganizationUser UserDeleteResponse UserListPage UserListParams UserUpdateParams)
+           (com.openai.models.admin.organization.workloadidentityproviders WorkloadIdentityProvider WorkloadIdentityProviderCreateParams WorkloadIdentityProviderCreateParams$Body WorkloadIdentityProviderDeleteParams WorkloadIdentityProviderListPage WorkloadIdentityProviderListParams WorkloadIdentityProviderListParams$Order WorkloadIdentityProviderRetrieveParams WorkloadIdentityProviderUpdateParams WorkloadIdentityProviderUpdateParams$Body)
+           (com.openai.models.admin.organization.workloadidentityproviders.federationrules FederationRule FederationRuleCreateParams FederationRuleCreateParams$Body FederationRuleDeleteParams FederationRuleListPage FederationRuleListParams FederationRuleListParams$Order FederationRuleRetrieveParams FederationRuleUpdateParams FederationRuleUpdateParams$Body)
            (com.openai.services.blocking.admin OrganizationService)
-           (com.openai.services.blocking.admin.organization AdminApiKeyService AuditLogService CertificateService DataRetentionService ExternalKeyService ExternalStorageService GroupService InviteService ProjectService RoleService SpendAlertService SpendLimitService UsageService UserService)))
+           (com.openai.services.blocking.admin.organization AdminApiKeyService AuditLogService CertificateService DataRetentionService ExternalKeyService ExternalStorageService GroupService InviteService ProjectService RoleService SpendAlertService SpendLimitService UsageService UserService WorkloadIdentityProviderService)
+           (com.openai.services.blocking.admin.organization.workloadidentityproviders FederationRuleService)))
 (set! *warn-on-reflection* true)
 
 (defn- ->project-create-params ^ProjectCreateParams [{:keys [name external-key-id geography residency]}]
@@ -155,6 +158,158 @@
               (string? (:type x)) (update :type impl/->keyword))
     (vector? x) (mapv keywordize-types x)
     :else x))
+
+(defn- ->workload-identity-provider-create-params ^WorkloadIdentityProviderCreateParams [req]
+  (doseq [k [:audience :issuer :name :type]]
+    (when-not (get req k) (impl/missing-key! k)))
+  (let [^WorkloadIdentityProviderCreateParams$Body body
+        (impl/sdk-input-object req WorkloadIdentityProviderCreateParams$Body)]
+    (-> (WorkloadIdentityProviderCreateParams/builder)
+        (.body body)
+        (.build))))
+
+(defn- ->workload-identity-provider-retrieve-params ^WorkloadIdentityProviderRetrieveParams [id]
+  (when-not id (impl/missing-key! :id))
+  (-> (WorkloadIdentityProviderRetrieveParams/builder)
+      (.workloadIdentityProviderId ^String id)
+      (.build)))
+
+(defn- ->workload-identity-provider-update-params ^WorkloadIdentityProviderUpdateParams [id req]
+  (when-not id (impl/missing-key! :id))
+  (let [^WorkloadIdentityProviderUpdateParams$Body body
+        (impl/sdk-input-object req WorkloadIdentityProviderUpdateParams$Body)]
+    (-> (WorkloadIdentityProviderUpdateParams/builder)
+        (.workloadIdentityProviderId ^String id)
+        (.body body)
+        (.build))))
+
+(defn- ->workload-identity-provider-delete-params ^WorkloadIdentityProviderDeleteParams [id]
+  (when-not id (impl/missing-key! :id))
+  (-> (WorkloadIdentityProviderDeleteParams/builder)
+      (.workloadIdentityProviderId ^String id)
+      (.build)))
+
+(defn- ->workload-identity-provider-list-params ^WorkloadIdentityProviderListParams
+  [{:keys [after limit order]}]
+  (let [b (WorkloadIdentityProviderListParams/builder)]
+    (when after (.after b ^String after))
+    (when limit (.limit b (long limit)))
+    (when order (.order b (WorkloadIdentityProviderListParams$Order/of (impl/enum-name order))))
+    (.build b)))
+
+(defn- workload-identity-provider->map [^WorkloadIdentityProvider provider]
+  (keywordize-types (impl/sdk-object->clj provider)))
+
+(defn workload-identity-provider-create [^OpenAIClient client req]
+  (impl/with-api-errors
+    (let [^WorkloadIdentityProviderService svc (.workloadIdentityProviders (organization client))]
+      (workload-identity-provider->map (.create svc (->workload-identity-provider-create-params req))))))
+
+(defn workload-identity-provider-retrieve [^OpenAIClient client id]
+  (impl/with-api-errors
+    (let [^WorkloadIdentityProviderService svc (.workloadIdentityProviders (organization client))]
+      (workload-identity-provider->map (.retrieve svc (->workload-identity-provider-retrieve-params id))))))
+
+(defn workload-identity-provider-update [^OpenAIClient client id req]
+  (impl/with-api-errors
+    (let [^WorkloadIdentityProviderService svc (.workloadIdentityProviders (organization client))]
+      (workload-identity-provider->map (.update svc (->workload-identity-provider-update-params id req))))))
+
+(defn workload-identity-provider-delete [^OpenAIClient client id]
+  (impl/with-api-errors
+    (let [^WorkloadIdentityProviderService svc (.workloadIdentityProviders (organization client))]
+      (keywordize-types (impl/sdk-object->clj (.delete svc (->workload-identity-provider-delete-params id)))))))
+
+(defn workload-identity-provider-list
+  ([^OpenAIClient client] (workload-identity-provider-list client {}))
+  ([^OpenAIClient client opts]
+   (impl/with-api-errors
+     (let [^WorkloadIdentityProviderService svc (.workloadIdentityProviders (organization client))
+           ^WorkloadIdentityProviderListPage page (.list svc (->workload-identity-provider-list-params opts))]
+       (mapv workload-identity-provider->map (impl/all-pages page))))))
+
+(defn- ->federation-rule-create-params ^FederationRuleCreateParams [provider-id req]
+  (when-not provider-id (impl/missing-key! :provider-id))
+  (doseq [k [:attribute-matchers :project-id :service-account-id]]
+    (when-not (get req k) (impl/missing-key! k)))
+  (let [^FederationRuleCreateParams$Body body
+        (impl/sdk-input-object req FederationRuleCreateParams$Body)]
+    (-> (FederationRuleCreateParams/builder)
+        (.workloadIdentityProviderId ^String provider-id)
+        (.body body)
+        (.build))))
+
+(defn- ->federation-rule-retrieve-params ^FederationRuleRetrieveParams [provider-id id]
+  (when-not provider-id (impl/missing-key! :provider-id))
+  (when-not id (impl/missing-key! :id))
+  (-> (FederationRuleRetrieveParams/builder)
+      (.workloadIdentityProviderId ^String provider-id)
+      (.workloadIdentityFederationRuleId ^String id)
+      (.build)))
+
+(defn- ->federation-rule-update-params ^FederationRuleUpdateParams [provider-id id req]
+  (when-not provider-id (impl/missing-key! :provider-id))
+  (when-not id (impl/missing-key! :id))
+  (let [^FederationRuleUpdateParams$Body body
+        (impl/sdk-input-object req FederationRuleUpdateParams$Body)]
+    (-> (FederationRuleUpdateParams/builder)
+        (.workloadIdentityProviderId ^String provider-id)
+        (.workloadIdentityFederationRuleId ^String id)
+        (.body body)
+        (.build))))
+
+(defn- ->federation-rule-delete-params ^FederationRuleDeleteParams [provider-id id]
+  (when-not provider-id (impl/missing-key! :provider-id))
+  (when-not id (impl/missing-key! :id))
+  (-> (FederationRuleDeleteParams/builder)
+      (.workloadIdentityProviderId ^String provider-id)
+      (.workloadIdentityFederationRuleId ^String id)
+      (.build)))
+
+(defn- ->federation-rule-list-params ^FederationRuleListParams [provider-id {:keys [after limit order service-account-id]}]
+  (when-not provider-id (impl/missing-key! :provider-id))
+  (let [b (FederationRuleListParams/builder)]
+    (.workloadIdentityProviderId b ^String provider-id)
+    (when after (.after b ^String after))
+    (when limit (.limit b (long limit)))
+    (when order (.order b (FederationRuleListParams$Order/of (impl/enum-name order))))
+    (when service-account-id (.serviceAccountId b ^String service-account-id))
+    (.build b)))
+
+(defn- federation-rule->map [^FederationRule rule]
+  (keywordize-types (impl/sdk-object->clj rule)))
+
+(defn- federation-rules ^FederationRuleService [^OpenAIClient client]
+  (.federationRules (.workloadIdentityProviders (organization client))))
+
+(defn federation-rule-create [^OpenAIClient client provider-id req]
+  (impl/with-api-errors
+    (federation-rule->map (.create (federation-rules client)
+                                  (->federation-rule-create-params provider-id req)))))
+
+(defn federation-rule-retrieve [^OpenAIClient client provider-id id]
+  (impl/with-api-errors
+    (federation-rule->map (.retrieve (federation-rules client)
+                                    (->federation-rule-retrieve-params provider-id id)))))
+
+(defn federation-rule-update [^OpenAIClient client provider-id id req]
+  (impl/with-api-errors
+    (federation-rule->map (.update (federation-rules client)
+                                  (->federation-rule-update-params provider-id id req)))))
+
+(defn federation-rule-delete [^OpenAIClient client provider-id id]
+  (impl/with-api-errors
+    (keywordize-types (impl/sdk-object->clj
+                       (.delete (federation-rules client)
+                                (->federation-rule-delete-params provider-id id))))))
+
+(defn federation-rule-list
+  ([^OpenAIClient client provider-id] (federation-rule-list client provider-id {}))
+  ([^OpenAIClient client provider-id opts]
+   (impl/with-api-errors
+     (let [^FederationRuleListPage page (.list (federation-rules client)
+                                               (->federation-rule-list-params provider-id opts))]
+       (mapv federation-rule->map (impl/all-pages page))))))
 
 (defn- external-storage->map [^ExternalStorageConfiguration configuration]
   {:id (.id configuration)

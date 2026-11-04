@@ -19,6 +19,8 @@
            (com.openai.models.admin.organization.projects.spendlimit ProjectSpendLimit ProjectSpendLimitDeleted ProjectSpendLimit$Currency ProjectSpendLimit$Interval ProjectSpendLimit$Enforcement ProjectSpendLimit$Enforcement$Status)
            (com.openai.models.admin.organization.spendlimit OrganizationSpendLimit OrganizationSpendLimitDeleted OrganizationSpendLimit$Currency OrganizationSpendLimit$Interval OrganizationSpendLimit$Enforcement OrganizationSpendLimit$Enforcement$Status)
            (com.openai.models.admin.organization.spendalerts OrganizationSpendAlert OrganizationSpendAlert$Currency OrganizationSpendAlert$Interval OrganizationSpendAlert$NotificationChannel)
+           (com.openai.models.admin.organization.workloadidentityproviders WorkloadIdentityProvider WorkloadIdentityProviderCreateParams WorkloadIdentityProviderListParams)
+           (com.openai.models.admin.organization.workloadidentityproviders.federationrules FederationRule FederationRuleCreateParams FederationRuleListParams)
            (com.openai.models.admin.organization.usage UsageCompletionsParams UsageCostsParams UsageDecisionsParams
                                                       UsageWebSearchCallsParams
                                                       UsageDecisionsResponse$Data
@@ -87,6 +89,138 @@
     (is (= 10 (impl/opt-get (.limit p))))
     (is (= "asc" (str (impl/opt-get (.order p)))))
     (is (= "psp_decryption" (str (impl/opt-get (.purpose p)))))))
+
+(deftest workload-identity-provider-operations-are-exposed
+  (doseq [sym '[workload-identity-provider-create
+                workload-identity-provider-retrieve
+                workload-identity-provider-update
+                workload-identity-provider-delete
+                workload-identity-provider-list
+                federation-rule-create
+                federation-rule-retrieve
+                federation-rule-update
+                federation-rule-delete
+                federation-rule-list]]
+    (is (fn? (some-> (ns-resolve 'openai.admin sym) deref))
+        (str sym " should be callable"))))
+
+(deftest workload-identity-provider-create-builds-params
+  (let [^WorkloadIdentityProviderCreateParams p
+        (#'admin/->workload-identity-provider-create-params
+         {:audience "api://openai" :issuer "https://issuer.example" :name "production"
+          :type :oidc :enabled true :attribute-transformations [{:claim "sub" :attribute "subject"}]
+          :verification {:type :discovery}})]
+    (is (= "api://openai" (.audience p)))
+    (is (= "https://issuer.example" (.issuer p)))
+    (is (= "production" (.name p)))
+    (is (true? (impl/opt-get (.enabled p))))
+    (is (= 1 (count (impl/opt-get (.attributeTransformations p)))))))
+
+(deftest workload-identity-provider-create-requires-fields
+  (doseq [req [{} {:audience "a"} {:audience "a" :issuer "i"}
+               {:audience "a" :issuer "i" :name "n"}]]
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (#'admin/->workload-identity-provider-create-params req)))))
+
+(deftest workload-identity-provider-round-trips
+  (let [provider (impl/sdk-input-object
+                  {:id "wip_1" :audience "api://openai" :attribute-transformations []
+                   :created-at 1 :enabled true :issuer "https://issuer.example" :name "production"
+                   :object "workload_identity_provider" :type "oidc" :updated-at 2
+                   :verification {:type "discovery"}}
+                  WorkloadIdentityProvider)]
+    (is (= {:id "wip_1" :audience "api://openai" :attribute-transformations []
+            :created-at 1 :enabled true :issuer "https://issuer.example" :name "production"
+            :object "workload_identity_provider" :type :oidc :updated-at 2
+            :verification {:type :discovery}}
+           (#'admin/workload-identity-provider->map provider)))))
+
+(deftest workload-identity-provider-list-builds-params
+  (let [^WorkloadIdentityProviderListParams p
+        (#'admin/->workload-identity-provider-list-params {:after "wip_1" :limit 10 :order :asc})]
+    (is (= "wip_1" (impl/opt-get (.after p))))
+    (is (= 10 (impl/opt-get (.limit p))))
+    (is (= "asc" (str (impl/opt-get (.order p)))))))
+
+(deftest workload-identity-provider-retrieve-update-and-delete-build-params
+  (let [retrieve (#'admin/->workload-identity-provider-retrieve-params "wip_1")
+        update (#'admin/->workload-identity-provider-update-params "wip_1" {:name "renamed"})
+        delete (#'admin/->workload-identity-provider-delete-params "wip_1")]
+    (is (= "wip_1" (impl/opt-get (.workloadIdentityProviderId retrieve))))
+    (is (= "wip_1" (impl/opt-get (.workloadIdentityProviderId update))))
+    (is (= "renamed" (impl/opt-get (.name update))))
+    (is (= "wip_1" (impl/opt-get (.workloadIdentityProviderId delete))))))
+
+(deftest workload-identity-provider-resource-operations-require-id
+  (doseq [f [#'admin/->workload-identity-provider-retrieve-params
+             #'admin/->workload-identity-provider-delete-params]]
+    (is (thrown? clojure.lang.ExceptionInfo (f nil))))
+  (is (thrown? clojure.lang.ExceptionInfo
+               (#'admin/->workload-identity-provider-update-params nil {}))))
+
+(deftest federation-rule-create-builds-params
+  (let [^FederationRuleCreateParams p
+        (#'admin/->federation-rule-create-params
+         "wip_1" {:attribute-matchers {:subject "user@example.com"}
+                  :project-id "proj_1" :service-account-id "svc_1"
+                  :enabled true :permissions {:type :restricted :scopes ["responses.write"]}})]
+    (is (= "wip_1" (impl/opt-get (.workloadIdentityProviderId p))))
+    (is (= "proj_1" (.projectId p)))
+    (is (= "svc_1" (.serviceAccountId p)))
+    (is (true? (impl/opt-get (.enabled p))))))
+
+(deftest federation-rule-create-requires-fields
+  (doseq [req [{} {:attribute-matchers {}} {:attribute-matchers {} :project-id "proj_1"}]]
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (#'admin/->federation-rule-create-params "wip_1" req))))
+  (is (thrown? clojure.lang.ExceptionInfo
+               (#'admin/->federation-rule-create-params nil {}))))
+
+(deftest federation-rule-round-trips
+  (let [rule (impl/sdk-input-object
+              {:id "rule_1" :attribute-matchers {:subject "user@example.com"}
+               :created-at 1 :enabled true :name "production" :object "federation_rule"
+               :permissions {:type "restricted" :scopes ["responses.write"]}
+               :project-id "proj_1" :service-account-id "svc_1" :updated-at 2
+               :workload-identity-provider-id "wip_1"}
+              FederationRule)]
+    (is (= {:id "rule_1" :attribute-matchers {:subject "user@example.com"}
+            :created-at 1 :enabled true :name "production" :object "federation_rule"
+            :permissions {:type :restricted :scopes ["responses.write"]}
+            :project-id "proj_1" :service-account-id "svc_1" :updated-at 2
+            :workload-identity-provider-id "wip_1"}
+           (#'admin/federation-rule->map rule)))))
+
+(deftest federation-rule-list-builds-params
+  (let [^FederationRuleListParams p
+        (#'admin/->federation-rule-list-params "wip_1"
+                                                {:after "rule_1" :limit 10 :order :desc
+                                                 :service-account-id "svc_1"})]
+    (is (= "wip_1" (impl/opt-get (.workloadIdentityProviderId p))))
+    (is (= "rule_1" (impl/opt-get (.after p))))
+    (is (= 10 (impl/opt-get (.limit p))))
+    (is (= "desc" (str (impl/opt-get (.order p)))))
+    (is (= "svc_1" (impl/opt-get (.serviceAccountId p))))))
+
+(deftest federation-rule-retrieve-update-and-delete-build-params
+  (let [retrieve (#'admin/->federation-rule-retrieve-params "wip_1" "rule_1")
+        update (#'admin/->federation-rule-update-params "wip_1" "rule_1" {:enabled false})
+        delete (#'admin/->federation-rule-delete-params "wip_1" "rule_1")]
+    (is (= "wip_1" (.workloadIdentityProviderId retrieve)))
+    (is (= "rule_1" (impl/opt-get (.workloadIdentityFederationRuleId retrieve))))
+    (is (= "wip_1" (.workloadIdentityProviderId update)))
+    (is (false? (impl/opt-get (.enabled update))))
+    (is (= "rule_1" (impl/opt-get (.workloadIdentityFederationRuleId delete))))))
+
+(deftest federation-rule-resource-operations-require-ids
+  (doseq [f [#'admin/->federation-rule-retrieve-params
+             #'admin/->federation-rule-delete-params]]
+    (is (thrown? clojure.lang.ExceptionInfo (f nil "rule_1")))
+    (is (thrown? clojure.lang.ExceptionInfo (f "wip_1" nil))))
+  (is (thrown? clojure.lang.ExceptionInfo
+               (#'admin/->federation-rule-update-params nil "rule_1" {})))
+  (is (thrown? clojure.lang.ExceptionInfo
+               (#'admin/->federation-rule-update-params "wip_1" nil {}))))
 (deftest translates-project-create
   (let [^ProjectCreateParams p (#'admin/->project-create-params
                                  {:name "research" :external-key-id "ext_123"

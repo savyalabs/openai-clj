@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.45.1"}
+net.clojars.savya/openai-clj {:mvn/version "0.46.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.45.1"]
+[net.clojars.savya/openai-clj "0.46.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.96.0](https://github.com/openai/openai-java/releases/tag/v4.96.0).
+Tracks [`com.openai/openai-java` 4.98.0](https://github.com/openai/openai-java/releases/tag/v4.98.0).
 
 ## Providers
 
@@ -466,6 +466,11 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
                            {:type :aws :name "production-kms"
                             :external-id "openai" :kms-arn "arn:aws:kms:..."
                             :role-arn "arn:aws:iam::...:role/openai"})
+(admin/workload-identity-provider-create admin-client
+                                         {:audience "api://openai"
+                                          :issuer "https://issuer.example"
+                                          :name "production" :type :oidc})
+(admin/federation-rule-list admin-client "wip_...")
 (admin-projects/service-account-list admin-client "proj_...")
 (admin-projects/api-key-update admin-client "proj_..." "key_..."
                                {:expires-in-seconds 3600})
@@ -486,9 +491,10 @@ helpers. `openai.live` contains WebRTC session creation and lifecycle helpers.
 `templates`), and `vaults` (and its nested `credentials`) sub-namespaces cover
 the beta multi-agent orchestration platform - see "Beta Agents API" above.
 `openai.content-provenance-checks` contains Content Provenance Checks.
-`openai.admin` includes organization external-storage configuration and external
-key create, retrieve, list, delete, and validation operations, plus organization usage
-reporting including `usage-decisions`. `openai.admin.projects` includes project
+`openai.admin` includes organization external-storage configuration, external-key
+create/retrieve/list/delete/validation, workload-identity-provider CRUD/list, and
+per-provider federation-rule CRUD/list operations, plus organization usage reporting
+including `usage-decisions`. `openai.admin.projects` includes project
 API key update via `api-key-update`. `openai.safety` includes safety alert and
 safety case retrieval.
 `openai.graders` maps to the stable grader-model service. Model names are passed
