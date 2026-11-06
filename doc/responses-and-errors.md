@@ -6,7 +6,8 @@
 (openai/get-response client "resp_123")
 (openai/list-input-items client "resp_123")
 (openai/count-input-tokens client {:model "gpt-5.2" :input "Count me."})
-(openai/compact client "resp_123")
+(openai/compact client "resp_123" {:model "gpt-5.2"
+                                    :image {:context-compression :enabled}})
 (openai/cancel-response client "resp_123")
 (openai/delete-response client "resp_123")
 ```

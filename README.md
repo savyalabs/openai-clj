@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.47.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.48.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.47.0"]
+[net.clojars.savya/openai-clj "0.48.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.99.0](https://github.com/openai/openai-java/releases/tag/v4.99.0).
+Tracks [`com.openai/openai-java` 4.101.0](https://github.com/openai/openai-java/releases/tag/v4.101.0).
 
 ## Providers
 
@@ -148,7 +148,10 @@ Request maps support `:model`, `:input`, `:instructions`,
 `:include`, `:truncation`, `:prompt-cache-key`, `:safety-identifier`,
 `:service-tier`, `:json-schema`, `:verbosity` (`:low`/`:medium`/`:high`),
 `:conversation` (a conversation id string), `:stream-options`
-(`{:include-obfuscation true}`), and `:moderation` (`{:model "..."}`).
+(`{:include-obfuscation true}`), `:moderation` (`{:model "..."}`), and
+`:image` (`{:context-compression :auto|:enabled|:disabled}`). The same
+`:image` map is accepted by `compact` as its options map; `compact` also
+requires `:model` in that options map.
 
 Input can be a string or a vector of message items. Message content can be a
 string or a vector of multimodal parts:
@@ -415,6 +418,11 @@ accept kebab-case request maps. Realtime WebSockets take a transport config map.
          '[openai.admin.projects :as admin-projects])
 
 (images/generate client {:model "gpt-image-1" :prompt "A Clojure logo"})
+(images/generate client {:model "gpt-image-2.6"
+                         :prompt "An animated Clojure logo"
+                         :complexity :high :frame-count 12 :frame-duration-ms 80
+                         :svg {:model "gpt-image-2.6"
+                               :reasoning {:effort :medium}}})
 (audio/create-speech client {:model "gpt-4o-mini-tts" :voice :alloy
                              :input "Hello"})
 (audio/create-voice client {:type :audio-sample :audio-sample voice-sample

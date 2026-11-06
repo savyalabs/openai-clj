@@ -111,6 +111,13 @@
       (is (.isBetaResponse input))
       (is (= 1 (count (.asBetaResponse input)))))))
 
+(deftest translates-beta-response-create-image-options
+  (let [p (#'responses/->params {:model "gpt-beta"
+                                 :input "hello"
+                                 :image {:context-compression :enabled}})]
+    (is (= "enabled"
+           (-> p .image impl/opt-get .contextCompression impl/opt-get .asString)))))
+
 (deftest beta-responses-input-prompt-cache-breakpoint-ttl
   (let [p (#'responses/->params
            {:model "gpt-beta"
@@ -246,6 +253,22 @@
     (is (= "gpt-image-1"
            (.asString (impl/opt-get (.model (.asImageGeneration (nth tools 2)))))))))
 
+(deftest builds-beta-tool-search-output-image-generation-animation-options
+  (let [item (#'responses/->input-item
+              {:type :tool-search-output
+               :tools [{:type :image-generation
+                        :complexity :low
+                        :frame-count 6
+                        :frame-duration-ms 120
+                        :svg {:model "gpt-image-2.6"
+                              :reasoning {:effort :low}}}]})
+        tool (-> item .asToolSearchOutput .tools first .asImageGeneration)]
+    (is (= "low" (-> tool .complexity impl/opt-get .asString)))
+    (is (= 6 (impl/opt-get (.frameCount tool))))
+    (is (= 120 (impl/opt-get (.frameDurationMs tool))))
+    (is (= "gpt-image-2.6" (-> tool .svg impl/opt-get .model impl/opt-get)))
+    (is (= "low" (-> tool .svg impl/opt-get .reasoning impl/opt-get .effort impl/opt-get .asString)))))
+
 (deftest builds-beta-tool-search-output-function-tool
   (let [item (#'responses/->input-item
               {:type :tool-search-output :tools [{:type :function :name "get_weather"}]})
@@ -346,6 +369,23 @@
     (is (.isCustom (nth tools 11)))
     (is (.isToolSearch (nth tools 12)))))
 
+(deftest translates-beta-image-generation-tool-animation-options
+  (let [p (#'responses/->params
+           {:model "gpt-beta"
+            :input "hi"
+            :tools [{:type :image-generation
+                     :complexity :high
+                     :frame-count 12
+                     :frame-duration-ms 80
+                     :svg {:model "gpt-image-2.6"
+                           :reasoning {:effort :medium}}}]})
+        tool (-> p .tools impl/opt-get first .asImageGeneration)]
+    (is (= "high" (-> tool .complexity impl/opt-get .asString)))
+    (is (= 12 (impl/opt-get (.frameCount tool))))
+    (is (= 80 (impl/opt-get (.frameDurationMs tool))))
+    (is (= "gpt-image-2.6" (-> tool .svg impl/opt-get .model impl/opt-get)))
+    (is (= "medium" (-> tool .svg impl/opt-get .reasoning impl/opt-get .effort impl/opt-get .asString)))))
+
 (deftest rejects-explicitly-empty-beta-web-search-domain-allow-list
   (is (= {:openai/error :empty-allow-list :option :allowed-domains}
          (ex-data-for #( #'responses/->params
@@ -397,6 +437,14 @@
     (is (= "item_1" (impl/opt-get (.after items))))
     (is (= 5 (impl/opt-get (.limit items))))
     (is (= "desc" (.asString (impl/opt-get (.order items)))))))
+
+(deftest translates-beta-compact-image-options
+  (let [compact (#'responses/->compact-params
+                 {:model "gpt-beta"
+                  :previous-response-id "resp_1"
+                  :image {:context-compression :disabled}})]
+    (is (= "disabled"
+           (-> compact .image impl/opt-get .contextCompression impl/opt-get .asString)))))
 
 (deftest maps-beta-responses
   (is (= {:id "resp_beta"
@@ -452,6 +500,15 @@
     (is (= "pmpt_beta" (get-in m [:prompt :id])))
     (is (= "4" (get-in m [:prompt :version])))
     (is (= "24h" (:prompt-cache-retention m)))))
+
+(deftest maps-beta-response-image-options
+  (let [image (-> (com.openai.models.beta.responses.BetaResponse$Image/builder)
+                  (.contextCompression
+                   (com.openai.models.beta.responses.BetaResponse$Image$ContextCompression/of "enabled"))
+                  (.build))]
+    (is (= {:context-compression :enabled}
+           (:image (#'responses/beta-response->map
+                    (-> (beta-response) .toBuilder (.image image) (.build))))))))
 
 (deftest translates-beta-response-access-programs
   (let [p (#'responses/->params
@@ -533,6 +590,30 @@
     (is (= 66 (get-in mapped [:tool-usage :image-gen :output-tokens])))
     (is (= 88 (get-in mapped [:tool-usage :web-search :num-requests])))))
 
+(deftest maps-beta-image-generation-svg-usage
+  (let [svg-usage (-> (com.openai.models.beta.responses.BetaResponseOutputItem$ImageGenerationCall$SvgUsage/builder)
+                      (.model "gpt-image-2.6")
+                      (.inputTokens 11)
+                      (.outputTokens 22)
+                      (.reasoningTokens 3)
+                      (.totalTokens 33)
+                      (.build))
+        item (BetaResponseOutputItem/ofImageGenerationCall
+              (-> (com.openai.models.beta.responses.BetaResponseOutputItem$ImageGenerationCall/builder)
+                  (.id "img_svg")
+                  (.result "svg")
+                  (.status (com.openai.models.beta.responses.BetaResponseOutputItem$ImageGenerationCall$Status/of
+                            "completed"))
+                  (.svgUsage svg-usage)
+                  (.build)))]
+    (is (= {:model "gpt-image-2.6"
+            :input-tokens 11
+            :output-tokens 22
+            :reasoning-tokens 3
+            :total-tokens 33}
+           (-> (#'responses/beta-response->map (beta-response [item]))
+               :output first :svg-usage)))))
+
 (deftest round-trips-beta-output-function-call-as-input
   (let [item (BetaResponseOutputItem/ofFunctionCall
               (-> (BetaResponseFunctionToolCall/builder)
@@ -603,6 +684,22 @@
                     :total-tokens 30}
             :created-at 1234}
            (#'responses/beta-compacted-response->map r)))))
+
+(deftest maps-beta-compacted-response-image-options
+  (let [image (-> (com.openai.models.beta.responses.BetaCompactedResponse$Image/builder)
+                  (.contextCompression
+                   (com.openai.models.beta.responses.BetaCompactedResponse$Image$ContextCompression/of "disabled"))
+                  (.build))
+        r (-> (BetaCompactedResponse/builder)
+              (.id "resp_compact")
+              (.createdAt 1234)
+              (.object_ (JsonValue/from "response.compaction"))
+              (.output [])
+              (.usage (empty-usage))
+              (.image image)
+              (.build))]
+    (is (= {:context-compression :disabled}
+           (:image (#'responses/beta-compacted-response->map r))))))
 
 (deftest maps-beta-token-count-response
   (let [r (-> (InputTokenCountResponse/builder)
