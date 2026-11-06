@@ -238,10 +238,19 @@
                     :previous-item-id "item_0"
                     :item {:type :message :role :user
                            :content [{:type :input-text :text "hello"}]}}
-                   {:type :response.create :response {:output-modalities [:text]}}
+                   {:type :response.create
+                    :response {:output-modalities [:text]
+                               :image {:context-compression :enabled}}}
                    {:type :response.cancel :response-id "resp_1"}]]
       (is (= (str/replace (name (:type event)) "-" "_")
              (:type (json-map (realtime/encode-client-event event))))))))
+
+(deftest encodes-response-create-image-options-as-wire-json
+  (is (= "enabled"
+         (get-in (json-map (realtime/encode-client-event
+                            {:type :response.create
+                             :response {:image {:context-compression :enabled}}}))
+                 [:response :image :context_compression]))))
 
 (deftest rejects-client-events-without-a-type
   (is (= {:openai/error :missing-key :key :type}

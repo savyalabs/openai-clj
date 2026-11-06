@@ -420,6 +420,22 @@
     (is (= "medium" (-> p .reasoning opt .effort opt .asString)))
     (is (= "pro" (-> p .reasoning opt .mode opt .asString)))))
 
+(deftest translates-response-create-image-options
+  (let [p (params {:model "gpt-5.2"
+                   :input "hi"
+                   :image {:context-compression :enabled}})]
+    (is (= "enabled"
+           (-> p .image opt .contextCompression opt .asString)))))
+
+(deftest translates-response-compact-image-options
+  (let [p (#'openai/->compact-params "resp_1"
+                                     {:model "gpt-5.2"
+                                      :image {:context-compression :disabled}})]
+    (is (= "gpt-5.2" (.asString (opt (.model p)))))
+    (is (= "resp_1" (opt (.previousResponseId p))))
+    (is (= "disabled"
+           (-> p .image opt .contextCompression opt .asString)))))
+
 (deftest translates-metadata
   (let [p (params {:model "gpt-5.2"
                    :input "hi"
@@ -652,6 +668,22 @@
            (ex-data-for #(params {:model "gpt-5.2"
                                   :input "hi"
                                   :tools [{:type :bogus}]}))))))
+
+(deftest translates-image-generation-tool-animation-options
+  (let [p (params {:model "gpt-5.2"
+                   :input "hi"
+                   :tools [{:type :image-generation
+                            :complexity :high
+                            :frame-count 12
+                            :frame-duration-ms 80
+                            :svg {:model "gpt-image-2.6"
+                                  :reasoning {:effort :medium}}}]})
+        tool (-> p .tools opt first .asImageGeneration)]
+    (is (= "high" (-> tool .complexity opt .asString)))
+    (is (= 12 (opt (.frameCount tool))))
+    (is (= 80 (opt (.frameDurationMs tool))))
+    (is (= "gpt-image-2.6" (-> tool .svg opt .model opt)))
+    (is (= "medium" (-> tool .svg opt .reasoning opt .effort opt .asString)))))
 
 (deftest translates-tool-choice
   (doseq [[choice expected] [[:auto ToolChoiceOptions/AUTO]
@@ -1335,6 +1367,43 @@
     (is (= "pmpt_weather" (get-in m [:prompt :id])))
     (is (= "2" (get-in m [:prompt :version])))
     (is (= "24h" (:prompt-cache-retention m)))))
+
+(deftest maps-response-image-options
+  (let [image (-> (com.openai.models.responses.Response$Image/builder)
+                  (.contextCompression
+                   (com.openai.models.responses.Response$Image$ContextCompression/of "enabled"))
+                  (.build))]
+    (is (= {:context-compression :enabled}
+           (:image (response->map (-> (response []) .toBuilder (.image image) (.build))))))))
+
+(deftest maps-compacted-response-image-options
+  (let [image (-> (com.openai.models.responses.CompactedResponse$Image/builder)
+                  (.contextCompression
+                   (com.openai.models.responses.CompactedResponse$Image$ContextCompression/of "enabled"))
+                  (.build))
+        compacted (-> (com.openai.models.responses.CompactedResponse/builder)
+                      (.id "resp_compact")
+                      (.createdAt 1234)
+                      (.object_ (JsonValue/from "response.compaction"))
+                      (.output [])
+                      (.usage (-> (ResponseUsage/builder)
+                                  (.inputTokens 10)
+                                  (.inputTokensDetails
+                                   (-> (ResponseUsage$InputTokensDetails/builder)
+                                       (.cacheWriteTokens 0)
+                                       (.cachedTokens 0)
+                                       (.build)))
+                                  (.outputTokens 20)
+                                  (.outputTokensDetails
+                                   (-> (ResponseUsage$OutputTokensDetails/builder)
+                                       (.reasoningTokens 0)
+                                       (.build)))
+                                  (.totalTokens 30)
+                                  (.build)))
+                      (.image image)
+                      (.build))]
+    (is (= {:context-compression :enabled}
+           (:image (#'openai/compacted-response->map compacted))))))
 
 (deftest translates-response-access-programs
   (let [p (params {:model "gpt-5.2" :input "hello"
@@ -2402,6 +2471,44 @@
     (is (= "auto" (.asString (.container (.asCodeInterpreter (second tools))))))
     (is (.isImageGeneration (nth tools 2)))
     (is (= "gpt-image-1" (.asString (impl/opt-get (.model (.asImageGeneration (nth tools 2)))))))))
+
+(deftest builds-tool-search-output-image-generation-animation-options
+  (let [item (openai/response-input-item
+              {:type :tool-search-output
+               :tools [{:type :image-generation
+                        :complexity :low
+                        :frame-count 6
+                        :frame-duration-ms 120
+                        :svg {:model "gpt-image-2.6"
+                              :reasoning {:effort :low}}}]})
+        tool (-> item .asToolSearchOutput .tools first .asImageGeneration)]
+    (is (= "low" (-> tool .complexity opt .asString)))
+    (is (= 6 (opt (.frameCount tool))))
+    (is (= 120 (opt (.frameDurationMs tool))))
+    (is (= "gpt-image-2.6" (-> tool .svg opt .model opt)))
+    (is (= "low" (-> tool .svg opt .reasoning opt .effort opt .asString)))))
+
+(deftest maps-image-generation-svg-usage
+  (let [svg-usage (-> (com.openai.models.responses.ResponseOutputItem$ImageGenerationCall$SvgUsage/builder)
+                      (.model "gpt-image-2.6")
+                      (.inputTokens 11)
+                      (.outputTokens 22)
+                      (.reasoningTokens 3)
+                      (.totalTokens 33)
+                      (.build))
+        item (ResponseOutputItem/ofImageGenerationCall
+              (-> (ResponseOutputItem$ImageGenerationCall/builder)
+                  (.id "img_svg")
+                  (.result "svg")
+                  (.status (ResponseOutputItem$ImageGenerationCall$Status/of "completed"))
+                  (.svgUsage svg-usage)
+                  (.build)))]
+    (is (= {:model "gpt-image-2.6"
+            :input-tokens 11
+            :output-tokens 22
+            :reasoning-tokens 3
+            :total-tokens 33}
+           (-> (response->map (response [item])) :output first :svg-usage)))))
 
 (deftest builds-tool-search-output-function-tool
   (let [item (openai/response-input-item

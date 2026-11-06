@@ -482,10 +482,31 @@
       (.container b "auto"))
     (.build b)))
 
+(defn- ->image-generation-svg-reasoning
+  ^com.openai.models.beta.responses.BetaTool$ImageGeneration$Svg$Reasoning [{:keys [effort]}]
+  (let [^com.openai.models.beta.responses.BetaTool$ImageGeneration$Svg$Reasoning$Builder b
+        (com.openai.models.beta.responses.BetaTool$ImageGeneration$Svg$Reasoning/builder)]
+    (when effort
+      (.effort b
+               (com.openai.models.beta.responses.BetaTool$ImageGeneration$Svg$Reasoning$BetaReasoningEffortEnum/of
+                (impl/enum-name effort))))
+    (.build b)))
+
+(defn- ->image-generation-svg ^com.openai.models.beta.responses.BetaTool$ImageGeneration$Svg
+  [{:keys [model reasoning]}]
+  (when-not model (impl/missing-key! :model))
+  (let [^com.openai.models.beta.responses.BetaTool$ImageGeneration$Svg$Builder b
+        (com.openai.models.beta.responses.BetaTool$ImageGeneration$Svg/builder)]
+    (.model b ^String model)
+    (when reasoning (.reasoning b (->image-generation-svg-reasoning reasoning)))
+    (.build b)))
+
 (defn- ->image-generation-tool
   [{:keys [action background input-fidelity model moderation output-compression
-           output-format partial-images quality size]}]
-  (let [b (com.openai.models.beta.responses.BetaTool$ImageGeneration/builder)]
+           output-format partial-images quality size complexity frame-count
+           frame-duration-ms svg]}]
+  (let [^com.openai.models.beta.responses.BetaTool$ImageGeneration$Builder b
+        (com.openai.models.beta.responses.BetaTool$ImageGeneration/builder)]
     (when action
       (.action b (com.openai.models.beta.responses.BetaTool$ImageGeneration$Action/of
                   (impl/enum-name action))))
@@ -508,6 +529,12 @@
       (.quality b (com.openai.models.beta.responses.BetaTool$ImageGeneration$Quality/of
                   (impl/enum-name quality))))
     (when size (.size b ^String size))
+    (when complexity
+      (.complexity b (com.openai.models.beta.responses.BetaTool$ImageGeneration$Complexity/of
+                     (impl/enum-name complexity))))
+    (when (some? frame-count) (.frameCount b (long frame-count)))
+    (when (some? frame-duration-ms) (.frameDurationMs b (long frame-duration-ms)))
+    (when svg (.svg b (->image-generation-svg svg)))
     (.build b)))
 
 (defn- ->mcp-headers ^com.openai.models.beta.responses.BetaTool$Mcp$Headers [headers]
@@ -642,12 +669,22 @@
       (throw (ex-info (str "Unknown beta tool choice " choice)
                       {:openai/error :unknown-tool-choice :tool-choice choice})))))
 
+(defn- ->response-image ^com.openai.models.beta.responses.ResponseCreateParams$Image
+  [{:keys [context-compression]}]
+  (let [^com.openai.models.beta.responses.ResponseCreateParams$Image$Builder b
+        (com.openai.models.beta.responses.ResponseCreateParams$Image/builder)]
+    (when context-compression
+      (.contextCompression b
+                           (com.openai.models.beta.responses.ResponseCreateParams$Image$ContextCompression/of
+                            (impl/enum-name context-compression))))
+    (.build b)))
+
 (defn- ->params ^ResponseCreateParams
   [{:keys [model input instructions max-output-tokens temperature top-p metadata previous-response-id
            store reasoning user tool-choice parallel-tool-calls background include truncation
            prompt-cache-key prompt-cache-options safety-identifier service-tier max-tool-calls
            top-logprobs stream-options betas multi-agent tools json-schema verbosity conversation
-           moderation prompt context-management prompt-cache-retention access-programs]}]
+           moderation prompt context-management prompt-cache-retention access-programs image]}]
   (when-not model (impl/missing-key! :model))
   (when-not input (impl/missing-key! :input))
   (let [^ResponseCreateParams$Builder b (ResponseCreateParams/builder)]
@@ -696,6 +733,7 @@
     (when (or json-schema verbosity) (.text b (->text-config json-schema verbosity)))
     (when conversation (.conversation b ^String conversation))
     (when moderation (.moderation b (->moderation moderation)))
+    (when image (.image b (->response-image image)))
     (.build b)))
 
 (defn- ->retrieve-params ^ResponseRetrieveParams
@@ -721,7 +759,7 @@
     (.build b)))
 
 (defn- ->compact-params ^ResponseCompactParams
-  [{:keys [model previous-response-id input instructions prompt-cache-key service-tier betas]}]
+  [{:keys [model previous-response-id input instructions prompt-cache-key service-tier betas image]}]
   (let [^ResponseCompactParams$Builder b (ResponseCompactParams/builder)]
     (when model (.model b ^String model))
     (when previous-response-id (.previousResponseId b ^String previous-response-id))
@@ -732,6 +770,13 @@
     (when instructions (.instructions b ^String instructions))
     (when prompt-cache-key (.promptCacheKey b ^String prompt-cache-key))
     (when service-tier (.serviceTier b (ResponseCompactParams$ServiceTier/of (impl/enum-name service-tier))))
+    (when image
+      (let [ib (com.openai.models.beta.responses.ResponseCompactParams$Image/builder)]
+        (when-let [context-compression (:context-compression image)]
+          (.contextCompression ib
+                               (com.openai.models.beta.responses.ResponseCompactParams$Image$ContextCompression/of
+                                (impl/enum-name context-compression))))
+        (.image b (.build ib))))
     (doseq [beta betas]
       (.addBeta b (com.openai.models.beta.responses.ResponseCompactParams$Beta/of
                    (impl/enum-name beta))))
@@ -797,6 +842,11 @@
     (update error :misalignment impl/misalignment->map)
     error))
 
+(defn- image-config->map [image]
+  (let [m (normalize-value (impl/sdk-object->clj image))]
+    (cond-> m
+      (:context-compression m) (update :context-compression impl/->keyword))))
+
 (defn- prompt-cache-diagnostics->map
   [^BetaResponse$PromptCacheDiagnostics diagnostics]
   (cond
@@ -831,7 +881,8 @@
       (:prompt m) (assoc :prompt (:prompt m))
       (:prompt-cache-retention m) (assoc :prompt-cache-retention (:prompt-cache-retention m))
       (:access-programs m) (assoc :access-programs
-                                  (update (:access-programs m) :cyber impl/->keyword)))))
+                                  (update (:access-programs m) :cyber impl/->keyword))
+      (:image m) (assoc :image (image-config->map (:image m))))))
 
 (defn- beta-response->map ^clojure.lang.IPersistentMap [^BetaResponse response]
   (let [m (beta-response-data->map (normalize-value (impl/sdk-object->clj response)))
@@ -845,11 +896,12 @@
   [^BetaCompactedResponse response]
   (let [m (normalize-value (impl/sdk-object->clj response))
         items (mapv normalize-response-item (:output m))]
-    {:id (:id m)
-     :output items
-     :text (impl/output-text items)
-     :usage (:usage m)
-     :created-at (:created-at m)}))
+    (cond-> {:id (:id m)
+             :output items
+             :text (impl/output-text items)
+             :usage (:usage m)
+             :created-at (:created-at m)}
+      (:image m) (assoc :image (image-config->map (:image m))))))
 
 (defn- input-token-count-response->map ^clojure.lang.IPersistentMap
   [^InputTokenCountResponse response]

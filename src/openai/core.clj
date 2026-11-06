@@ -175,6 +175,8 @@
                                          ResponseCreateParams$AccessPrograms$Cyber
                                          ResponseCreateParams$Builder
                                          ResponseCreateParams$Input
+                                         ResponseCreateParams$Image
+                                         ResponseCreateParams$Image$ContextCompression
                                          ResponseCreateParams$ContextManagement
                                          ResponseCreateParams$ContextManagement$Builder
                                          ResponseCreateParams$Metadata
@@ -186,6 +188,9 @@
                                          ResponseCreateParams$ServiceTier
                                          ResponseCreateParams$ToolChoice
                                          ResponseCreateParams$Truncation
+                                         ResponseCompactParams
+                                         ResponseCompactParams$Image
+                                         ResponseCompactParams$Image$ContextCompression
                                          ResponseCreateParams$StreamOptions
                                          ResponseCreateParams$StreamOptions$Builder
                                          ResponseCreateParams$Moderation
@@ -264,10 +269,14 @@
                                          Tool$ImageGeneration
                                          Tool$ImageGeneration$Action
                                          Tool$ImageGeneration$Background
+                                         Tool$ImageGeneration$Complexity
                                          Tool$ImageGeneration$InputFidelity
                                          Tool$ImageGeneration$Moderation
                                          Tool$ImageGeneration$OutputFormat
                                          Tool$ImageGeneration$Quality
+                                         Tool$ImageGeneration$Svg
+                                         Tool$ImageGeneration$Svg$Reasoning
+                                         Tool$ImageGeneration$Svg$Reasoning$ReasoningEffortEnum
                                          Tool$Mcp
                                          Tool$Mcp$Builder
                                          Tool$Mcp$Headers
@@ -816,9 +825,25 @@
     (when headers (.headers b (->mcp-headers headers)))
     (.build b)))
 
+(defn- ->image-generation-svg-reasoning ^Tool$ImageGeneration$Svg$Reasoning
+  [{:keys [effort]}]
+  (let [b (Tool$ImageGeneration$Svg$Reasoning/builder)]
+    (when effort
+      (.effort b (Tool$ImageGeneration$Svg$Reasoning$ReasoningEffortEnum/of
+                  (impl/enum-name effort))))
+    (.build b)))
+
+(defn- ->image-generation-svg ^Tool$ImageGeneration$Svg [{:keys [model reasoning]}]
+  (when-not model (impl/missing-key! :model))
+  (let [b (Tool$ImageGeneration$Svg/builder)]
+    (.model b ^String model)
+    (when reasoning (.reasoning b (->image-generation-svg-reasoning reasoning)))
+    (.build b)))
+
 (defn- ->image-generation-tool
   [{:keys [action background input-fidelity model moderation output-compression
-           output-format partial-images quality size]}]
+           output-format partial-images quality size complexity frame-count
+           frame-duration-ms svg]}]
   (let [b (Tool$ImageGeneration/builder)]
     (when action (.action b (Tool$ImageGeneration$Action/of (impl/enum-name action))))
     (when background (.background b (Tool$ImageGeneration$Background/of (impl/enum-name background))))
@@ -830,6 +855,10 @@
     (when partial-images (.partialImages b (long partial-images)))
     (when quality (.quality b (Tool$ImageGeneration$Quality/of (impl/enum-name quality))))
     (when size (.size b ^String size))
+    (when complexity (.complexity b (Tool$ImageGeneration$Complexity/of (impl/enum-name complexity))))
+    (when (some? frame-count) (.frameCount b (long frame-count)))
+    (when (some? frame-duration-ms) (.frameDurationMs b (long frame-duration-ms)))
+    (when svg (.svg b (->image-generation-svg svg)))
     (.build b)))
 
 (defn- ->shell-tool [{:keys [environment container-id]}]
@@ -917,13 +946,20 @@
                        :type (:type choice)})))
     (ResponseCreateParams$ToolChoice/ofOptions (->tool-choice-option choice))))
 
+(defn- ->response-image ^ResponseCreateParams$Image [{:keys [context-compression]}]
+  (let [b (ResponseCreateParams$Image/builder)]
+    (when context-compression
+      (.contextCompression b (ResponseCreateParams$Image$ContextCompression/of
+                              (impl/enum-name context-compression))))
+    (.build b)))
+
 (defn- ->params ^ResponseCreateParams
   [{:keys [model input instructions max-output-tokens temperature top-p
            metadata previous-response-id store reasoning user tools tool-choice
            parallel-tool-calls background include truncation prompt-cache-key prompt-cache-options
            safety-identifier service-tier max-tool-calls top-logprobs
            json-schema verbosity conversation stream-options moderation prompt
-           context-management prompt-cache-retention access-programs]}]
+           context-management prompt-cache-retention access-programs image]}]
   (when-not model (impl/missing-key! :model))
   (when-not input (impl/missing-key! :input))
   (let [^ResponseCreateParams$Builder b (ResponseCreateParams/builder)]
@@ -965,6 +1001,7 @@
     (when conversation (.conversation b ^String conversation))
     (when stream-options (.streamOptions b (->stream-options stream-options)))
     (when moderation (.moderation b (->moderation moderation)))
+    (when image (.image b (->response-image image)))
     (.build b)))
 
 (defn- ->input-token-count-params ^InputTokenCountParams
@@ -1199,6 +1236,11 @@
   (cond-> {}
     (.isPresent (.reason d)) (assoc :reason (impl/->keyword (.asString ^com.openai.models.responses.Response$IncompleteDetails$Reason (.get (.reason d)))))))
 
+(defn- image-config->map [image]
+  (let [m (impl/sdk-object->clj image)]
+    (cond-> m
+      (:context-compression m) (update :context-compression impl/->keyword))))
+
 (defn- prompt-cache-diagnostics->map [^Response$PromptCacheDiagnostics diagnostics]
   (cond
     (.isCacheMiss diagnostics)
@@ -1242,7 +1284,9 @@
                         (.get (.promptCacheRetention r))))
       (.isPresent (.accessPrograms r))
       (assoc :access-programs
-             (update (impl/sdk-object->clj (.get (.accessPrograms r))) :cyber impl/->keyword)))
+             (update (impl/sdk-object->clj (.get (.accessPrograms r))) :cyber impl/->keyword))
+      (.isPresent (.image r))
+      (assoc :image (image-config->map (.get (.image r)))))
      r opts))))
 
 (defn- schema-value [schema key]
@@ -2090,14 +2134,32 @@
 
 (defn- compacted-response->map [^com.openai.models.responses.CompactedResponse r]
   (let [items (mapv output-item->map (.output r))]
-    {:id (.id r)
-     :output items
-     :text (impl/output-text items)
-     :usage (usage->map (.usage r))
-     :created-at (.createdAt r)}))
+    (cond-> {:id (.id r)
+             :output items
+             :text (impl/output-text items)
+             :usage (usage->map (.usage r))
+             :created-at (.createdAt r)}
+      (.isPresent (.image r))
+      (assoc :image (image-config->map (.get (.image r)))))))
+
+(defn- ->compact-image ^ResponseCompactParams$Image [{:keys [context-compression]}]
+  (let [b (ResponseCompactParams$Image/builder)]
+    (when context-compression
+      (.contextCompression b (ResponseCompactParams$Image$ContextCompression/of
+                              (impl/enum-name context-compression))))
+    (.build b)))
+
+(defn- ->compact-params ^ResponseCompactParams [response-id {:keys [model image]}]
+  (when-not model (impl/missing-key! :model))
+  (let [b (ResponseCompactParams/builder)]
+    (.model b ^String model)
+    (.previousResponseId b ^String response-id)
+    (when image (.image b (->compact-image image)))
+    (.build b)))
 
 (defn compact
   "Compact a previous response by id and return the compacted response map.
+  Supply the required Responses `:model` in opts.
   Pass `{:lossless? true}` as the optional third argument to include
   `:openai/raw`."
   ([^OpenAIClient client ^String response-id]
@@ -2105,9 +2167,7 @@
   ([^OpenAIClient client ^String response-id opts]
    (impl/with-api-errors
      (let [^ResponseService svc (.responses client)
-           r (.compact svc (-> (com.openai.models.responses.ResponseCompactParams/builder)
-                               (.previousResponseId response-id)
-                               (.build)))]
+           r (.compact svc (->compact-params response-id opts))]
        (impl/preserve-raw (compacted-response->map r) r opts)))))
 
 ;; Files

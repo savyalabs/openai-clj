@@ -53,6 +53,23 @@
     (is (= "safe-user" (opt (.safetyIdentifier p))))
     (is (= 2 (opt (.partialImages p))))))
 
+(deftest translates-generate-animation-options
+  (let [p (generate-params {:prompt "an animated fox"
+                            :complexity :high
+                            :frame-count 12
+                            :frame-duration-ms 80})]
+    (is (= "high" (.asString (opt (.complexity p)))))
+    (is (= 12 (opt (.frameCount p))))
+    (is (= 80 (opt (.frameDurationMs p))))))
+
+(deftest translates-generate-svg-options
+  (let [p (generate-params {:prompt "a fox as SVG"
+                            :svg {:model "gpt-image-2.6"
+                                  :reasoning {:effort :medium}}})
+        svg (opt (.svg p))]
+    (is (= "gpt-image-2.6" (.model svg)))
+    (is (= "medium" (.asString (opt (-> svg .reasoning opt .effort)))))))
+
 (deftest coerces-edit-bytes-with-filename
   (let [bytes (.getBytes "png" "UTF-8")
         p (edit-params {:image bytes
@@ -73,6 +90,16 @@
     (is (= [115 118 103]
            (vec (.readAllBytes (opt (.markup p))))))))
 
+(deftest translates-edit-animation-options
+  (let [p (edit-params {:image (.getBytes "png" "UTF-8")
+                        :prompt "animate"
+                        :complexity :medium
+                        :frame-count 8
+                        :frame-duration-ms 100})]
+    (is (= "medium" (.asString (opt (.complexity p)))))
+    (is (= 8 (opt (.frameCount p))))
+    (is (= 100 (opt (.frameDurationMs p))))))
+
 (deftest converts-images-response
   (let [image (-> (Image/builder)
                   (.b64Json "encoded")
@@ -88,3 +115,22 @@
                     :url "https://example.test/image.png"
                     :revised-prompt "a revised prompt"}]}
            (response->map response)))))
+
+(deftest converts-images-response-svg-usage
+  (let [svg-usage (-> (com.openai.models.images.ImagesResponse$SvgUsage/builder)
+                      (.model "gpt-image-2.6")
+                      (.inputTokens 11)
+                      (.outputTokens 22)
+                      (.reasoningTokens 3)
+                      (.totalTokens 33)
+                      (.build))
+        response (-> (ImagesResponse/builder)
+                     (.created 42)
+                     (.svgUsage svg-usage)
+                     (.build))]
+    (is (= {:model "gpt-image-2.6"
+            :input-tokens 11
+            :output-tokens 22
+            :reasoning-tokens 3
+            :total-tokens 33}
+           (:svg-usage (response->map response))))))

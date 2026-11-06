@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-11-05
+
+### Added
+
+- Support image animation and SVG options and SVG usage in Images.
+- Support Responses image context compression, image-generation tool animation
+  and SVG options, and SVG usage in stable and beta Responses.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.101.0.
+
+### Fixed
+
+- `compact` always threw `model is required` because it never set a model. It now
+  takes `:model` in opts and reports a missing-key error without one.
+
 ## [0.47.0] - 2026-11-04
 
 ### Added

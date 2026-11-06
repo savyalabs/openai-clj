@@ -15,6 +15,7 @@
                                       ImageEditParams
                                       ImageEditParams$Background
                                       ImageEditParams$Builder
+                                      ImageEditParams$Complexity
                                       ImageEditParams$Image
                                       ImageEditParams$InputFidelity
                                       ImageEditParams$OutputFormat
@@ -29,12 +30,16 @@
                                       ImageGenerateParams
                                       ImageGenerateParams$Background
                                       ImageGenerateParams$Builder
+                                      ImageGenerateParams$Complexity
                                       ImageGenerateParams$Moderation
                                       ImageGenerateParams$OutputFormat
                                       ImageGenerateParams$Quality
                                       ImageGenerateParams$ResponseFormat
                                       ImageGenerateParams$Size
                                       ImageGenerateParams$Style
+                                      ImageGenerateParams$Svg
+                                      ImageGenerateParams$Svg$Reasoning
+                                      ImageGenerateParams$Svg$Reasoning$Effort
                                       ImageGenPartialImageEvent
                                       ImageGenStreamEvent
                                       ImagesResponse
@@ -42,6 +47,7 @@
                                       ImagesResponse$OutputFormat
                                       ImagesResponse$Quality
                                       ImagesResponse$Size
+                                      ImagesResponse$SvgUsage
                                       ImagesResponse$Usage
                                       ImagesResponse$Usage$InputTokensDetails
                                       ImagesResponse$Usage$OutputTokensDetails)
@@ -52,9 +58,23 @@
 
 (set! *warn-on-reflection* true)
 
+(defn- ->svg-reasoning ^ImageGenerateParams$Svg$Reasoning [{:keys [effort]}]
+  (let [b (ImageGenerateParams$Svg$Reasoning/builder)]
+    (when effort
+      (.effort b (ImageGenerateParams$Svg$Reasoning$Effort/of (impl/enum-name effort))))
+    (.build b)))
+
+(defn- ->svg ^ImageGenerateParams$Svg [{:keys [model reasoning]}]
+  (when-not model (impl/missing-key! :model))
+  (let [b (ImageGenerateParams$Svg/builder)]
+    (.model b ^String model)
+    (when reasoning (.reasoning b (->svg-reasoning reasoning)))
+    (.build b)))
+
 (defn- ->generate-params ^ImageGenerateParams
   [{:keys [prompt model n size quality style response-format background
-           output-format output-compression moderation partial-images safety-identifier user]}]
+           output-format output-compression moderation partial-images safety-identifier user
+           complexity frame-count frame-duration-ms svg]}]
   (when-not prompt (impl/missing-key! :prompt))
   (let [^ImageGenerateParams$Builder b (ImageGenerateParams/builder)]
     (.prompt b ^String prompt)
@@ -69,6 +89,10 @@
     (when output-compression (.outputCompression b (long output-compression)))
     (when moderation (.moderation b (ImageGenerateParams$Moderation/of (impl/enum-name moderation))))
     (when partial-images (.partialImages b (long partial-images)))
+    (when complexity (.complexity b (ImageGenerateParams$Complexity/of (impl/enum-name complexity))))
+    (when (some? frame-count) (.frameCount b (long frame-count)))
+    (when (some? frame-duration-ms) (.frameDurationMs b (long frame-duration-ms)))
+    (when svg (.svg b (->svg svg)))
     (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
     (when user (.user b ^String user))
     (.build b)))
@@ -130,7 +154,7 @@
 (defn- ->edit-params ^ImageEditParams
   [{:keys [image filename markup markup-filename mask mask-filename prompt model n size response-format
            background input-fidelity output-compression output-format
-           partial-images quality safety-identifier user]}]
+           partial-images quality safety-identifier user complexity frame-count frame-duration-ms]}]
   (when-not image (impl/missing-key! :image))
   (when-not prompt (impl/missing-key! :prompt))
   (let [^ImageEditParams$Builder b (ImageEditParams/builder)]
@@ -148,6 +172,9 @@
     (when output-format (.outputFormat b (ImageEditParams$OutputFormat/of (impl/enum-name output-format))))
     (when partial-images (.partialImages b (long partial-images)))
     (when quality (.quality b (ImageEditParams$Quality/of (impl/enum-name quality))))
+    (when complexity (.complexity b (ImageEditParams$Complexity/of (impl/enum-name complexity))))
+    (when (some? frame-count) (.frameCount b (long frame-count)))
+    (when (some? frame-duration-ms) (.frameDurationMs b (long frame-duration-ms)))
     (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
     (when user (.user b ^String user))
     (.build b)))
@@ -188,6 +215,13 @@
     (assoc :output-tokens-details
            (token-details->map (impl/opt-get (.outputTokensDetails usage))))))
 
+(defn- svg-usage->map [^ImagesResponse$SvgUsage usage]
+  {:model (.model usage)
+   :input-tokens (.inputTokens usage)
+   :output-tokens (.outputTokens usage)
+   :reasoning-tokens (.reasoningTokens usage)
+   :total-tokens (.totalTokens usage)})
+
 (defn- event-usage->map [usage]
   (condp instance? usage
     ImageGenCompletedEvent$Usage
@@ -221,6 +255,8 @@
     (assoc :size (impl/->keyword (.asString ^ImagesResponse$Size (impl/opt-get (.size response)))))
     (.isPresent (.usage response))
     (assoc :usage (usage->map (impl/opt-get (.usage response))))
+    (.isPresent (.svgUsage response))
+    (assoc :svg-usage (svg-usage->map (impl/opt-get (.svgUsage response))))
     (.isPresent (.safetyIdentifier response))
     (assoc :safety-identifier (impl/opt-get (.safetyIdentifier response)))))
 
