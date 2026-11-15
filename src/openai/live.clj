@@ -62,14 +62,15 @@
 
 (defn- ->media-session ^MediaSessionConfig [session]
   (when-not session (impl/missing-key! :session))
-  (let [{:keys [model delegation]} session]
+  (let [{:keys [model delegation safety-identifier]} session]
     (when-not model (impl/missing-key! :model))
     (let [^MediaSessionConfig$Builder b (MediaSessionConfig/builder)]
       (.model b (MediaSessionConfig$Model/of (if (keyword? model)
                                                (name model)
                                                model)))
       (when delegation (.delegation b (->delegation delegation)))
-      (put-media-session-properties! b (dissoc session :model :delegation))
+      (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
+      (put-media-session-properties! b (dissoc session :model :delegation :safety-identifier))
       (.build b))))
 
 (defn- ->live-transport ^LiveCreateParams$Transport [transport]
@@ -99,13 +100,14 @@
 
 (defn- ->accept-session ^SessionAcceptParams$Session [session]
   (when-not session (impl/missing-key! :session))
-  (let [{:keys [model]} session]
+  (let [{:keys [model safety-identifier]} session]
     (when-not model (impl/missing-key! :model))
     (let [^SessionAcceptParams$Session$Builder b
           (SessionAcceptParams$Session/builder)]
       (.model b (SessionAcceptParams$Session$Model/of
                  (if (keyword? model) (name model) model)))
-      (doseq [[k v] (dissoc session :model)]
+      (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
+      (doseq [[k v] (dissoc session :model :safety-identifier)]
         (.putAdditionalProperty b (wire-name k) (json-value v)))
       (.build b))))
 

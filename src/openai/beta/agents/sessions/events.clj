@@ -61,11 +61,14 @@
       (.putAdditionalBodyProperty b (wire-name k) (json-value v)))
     (.build b)))
 
-(defn ->stream-params ^EventStreamParams [^String session-id]
+(defn ->stream-params
+  (^EventStreamParams [^String session-id] (->stream-params session-id {}))
+  (^EventStreamParams [^String session-id {:keys [include-obfuscation]}]
   (when-not session-id (impl/missing-key! :session-id))
-  (-> (EventStreamParams/builder)
-      (.sessionId session-id)
-      (.build)))
+  (let [b (EventStreamParams/builder)]
+    (.sessionId b session-id)
+    (when (some? include-obfuscation) (.includeObfuscation b (boolean include-obfuscation)))
+    (.build b))))
 
 (defn- event->map ^clojure.lang.IPersistentMap [^AgentSessionEvent event]
   (let [m (impl/sdk-object->clj event)]
@@ -85,13 +88,14 @@
 (defn stream
   "Consume an Agent Session SSE stream and invoke `on-event` with each event
   as a kebab-case Clojure map."
-  [^OpenAIClient client ^String session-id on-event]
-  (impl/with-api-errors
-    (with-open [^StreamResponse response
-                (.streamStreaming (event-service client)
-                                  (->stream-params session-id))]
-      (doseq [^AgentSessionEvent event
-              (iterator-seq (.iterator (.stream response)))]
-        (when on-event
-          (on-event (event->map event)))))
-    nil))
+  ([^OpenAIClient client ^String session-id on-event]
+   (stream client session-id {} on-event))
+  ([^OpenAIClient client ^String session-id opts on-event]
+   (impl/with-api-errors
+     (with-open [^StreamResponse response
+                 (.streamStreaming (event-service client)
+                                   (->stream-params session-id opts))]
+       (doseq [^AgentSessionEvent event
+               (iterator-seq (.iterator (.stream response)))]
+         (when on-event (on-event (event->map event)))))
+     nil)))

@@ -15,9 +15,11 @@
                                                     SessionCreateParams$Agent$ServiceTier
                                                     SessionCreateParams$Input
                                                     SessionCreateParams$Metadata
+                                                    SessionCreateParams$PromptCacheOptions
                                                     SessionCreateParams$Review
                                                     SessionCreateParams$SpendControl
                                                     SessionCreateParams$SpendControl$Builder
+                                                    SessionCreateParams$StreamOptions
                                                     SessionDeleteParams
                                                     SessionListPage
                                                     SessionListParams
@@ -26,6 +28,7 @@
                                                     SessionRetrieveParams
                                                     SessionUpdateParams
                                                     SessionUpdateParams$Metadata
+                                                    SessionUpdateParams$PromptCacheOptions
                                                     SessionUpdateParams$Review
                                                     SessionUpdateParams$SpendControl
                                                     SessionUpdateParams$SpendControl$Builder)
@@ -123,8 +126,17 @@
     (when (some? limit) (.limit b (long limit)))
     (.build b)))
 
+(defn- ->create-prompt-cache-options ^SessionCreateParams$PromptCacheOptions [m]
+  (sdk-value m SessionCreateParams$PromptCacheOptions))
+
+(defn- ->update-prompt-cache-options ^SessionUpdateParams$PromptCacheOptions [m]
+  (sdk-value m SessionUpdateParams$PromptCacheOptions))
+
+(defn- ->stream-options ^SessionCreateParams$StreamOptions [m]
+  (sdk-value m SessionCreateParams$StreamOptions))
+
 (defn- ->session-create-params ^SessionCreateParams
-  [{:keys [environment agent agent-id input metadata review spend-control vault-ids] :as req}]
+  [{:keys [environment agent agent-id input metadata review spend-control vault-ids prompt-cache-options stream-options] :as req}]
   (when-not environment (impl/missing-key! :environment))
   (when-not (or agent-id agent) (impl/missing-key! :agent-id-or-agent))
   (let [b (SessionCreateParams/builder)]
@@ -135,9 +147,11 @@
     (when metadata (.metadata b (->create-metadata metadata)))
     (when review (.review b (SessionCreateParams$Review/of (impl/enum-name review))))
     (when spend-control (.spendControl b (->create-spend-control spend-control)))
+    (when prompt-cache-options (.promptCacheOptions b (->create-prompt-cache-options prompt-cache-options)))
+    (when stream-options (.streamOptions b (->stream-options stream-options)))
     (when vault-ids (.vaultIds b ^java.util.List (vec vault-ids)))
     (doseq [[k v] (dissoc req :environment :agent :agent-id :input
-                          :metadata :review :spend-control :vault-ids)]
+                          :metadata :review :spend-control :vault-ids :prompt-cache-options :stream-options)]
       (.putAdditionalBodyProperty b (wire-name k) (json-value v)))
     (.build b)))
 
@@ -148,14 +162,15 @@
       (.build)))
 
 (defn- ->session-update-params ^SessionUpdateParams
-  [session-id {:keys [metadata review spend-control] :as req}]
+  [session-id {:keys [metadata review spend-control prompt-cache-options] :as req}]
   (when-not session-id (impl/missing-key! :session-id))
   (let [b (SessionUpdateParams/builder)]
     (.sessionId b ^String session-id)
     (when metadata (.metadata b (->update-metadata metadata)))
     (when review (.review b (SessionUpdateParams$Review/of (impl/enum-name review))))
     (when spend-control (.spendControl b (->update-spend-control spend-control)))
-    (doseq [[k v] (dissoc req :metadata :review :spend-control)]
+    (when prompt-cache-options (.promptCacheOptions b (->update-prompt-cache-options prompt-cache-options)))
+    (doseq [[k v] (dissoc req :metadata :review :spend-control :prompt-cache-options)]
       (.putAdditionalBodyProperty b (wire-name k) (json-value v)))
     (.build b)))
 

@@ -159,6 +159,12 @@
     (is (= {:output {:voice "shida"}}
            (-> session ._additionalProperties (get "audio") json-value->clj)))))
 
+(deftest live-safety-identifier-reaches-typed-sdk-fields
+  (let [^MediaSessionConfig media (#'live/->media-session {:model :gpt-live-1 :safety-identifier "user_1"})
+        accept (#'live/->accept-session {:model :gpt-live-1 :safety-identifier "user_2"})]
+    (is (= "user_1" (.get (.safetyIdentifier media))))
+    (is (= "user_2" (.get (.safetyIdentifier accept))))))
+
 (deftest hangs-up-live-session
   (let [build-params (ns-resolve 'openai.live '->session-hangup-params)
         session-hangup (ns-resolve 'openai.live 'session-hangup)]

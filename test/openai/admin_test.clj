@@ -67,6 +67,16 @@
     (is (= "project" (.kmsProjectId (.asGcp body))))
     (is (= "pool" (.workloadIdentityPoolId (.asGcp body))))))
 
+(deftest external-key-create-oci-builds-params
+  (let [^ExternalKeyCreateParams p (#'admin/->external-key-create-params
+                                     {:type :oci :name "key" :key-ocid "ocid1.key"
+                                      :vault-ocid "ocid1.vault" :region "us-ashburn-1"
+                                      :key-version-ocid "ocid1.version" :purpose :ekm})
+        body (.body p)]
+    (is (.isOci body))
+    (is (= "ocid1.key" (.keyOcid (.asOci body))))
+    (is (= "ocid1.vault" (.vaultOcid (.asOci body))))))
+
 (deftest external-key-create-requires-type
   (is (= {:openai/error :missing-key :key :type}
          (try (#'admin/->external-key-create-params {})

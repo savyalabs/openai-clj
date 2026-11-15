@@ -18,7 +18,7 @@
     (map? value)
     (into {}
           (map (fn [[k v]]
-                 [k (if (and (#{:type :status :role} k) (string? v))
+                 [k (if (and (#{:type :status :role :ttl} k) (string? v))
                       (impl/->keyword v)
                       (normalize-value v))]))
           value)

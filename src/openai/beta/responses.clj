@@ -879,6 +879,9 @@
       (:incomplete-details m) (assoc :incomplete-details (:incomplete-details m))
       (:previous-response-id m) (assoc :previous-response-id (:previous-response-id m))
       (:prompt m) (assoc :prompt (:prompt m))
+      (:input-transformations m) (assoc :input-transformations
+                                        (mapv #(update % :reason impl/->keyword)
+                                              (:input-transformations m)))
       (:prompt-cache-retention m) (assoc :prompt-cache-retention (:prompt-cache-retention m))
       (:access-programs m) (assoc :access-programs
                                   (update (:access-programs m) :cyber impl/->keyword))

@@ -5,6 +5,7 @@
                                            AgentSession$RequiredAction
                                            AgentSessionInputParam
                                            AgentSessionItem
+                                           AgentTool
                                            AgentToolParam
                                            EnvironmentParam
                                            PersistedAgentToolParam)
@@ -37,6 +38,28 @@
               :network {:access "restricted"
                         :blocked-domains ["blocked.example"]}}
              (impl/sdk-object->clj environment))))))
+
+(deftest generic-sdk-conversion-covers-function-tool-async-and-mcp-approval
+  (let [^AgentTool tool (impl/sdk-input-object
+                          {:type :function :name "search" :parameters {} :async true}
+                          AgentTool)
+        ^AgentSessionInputParam input (impl/sdk-input-object
+                                       {:type :agent.session.input.mcp-approval-request-result
+                                        :request-id "request_123"
+                                        :response {:decision :approve}}
+                                       AgentSessionInputParam)]
+    (is (true? (.get (.async (.asFunction tool)))))
+    (is (.isAgentSessionInputMcpApprovalRequestResult input))
+    (is (= :approve (-> input impl/sdk-object->clj :response :decision impl/->keyword)))))
+
+(deftest generic-sdk-conversion-covers-mcp-approval-required-action
+  (let [^AgentSession$RequiredAction action
+        (impl/sdk-input-object
+         {:type :mcp-approval-request :request-id "request_123" :turn-id "turn_123"
+          :request {:message "Approve?" :server-label "tools" :arguments {} :name "search"}}
+         AgentSession$RequiredAction)]
+    (is (.isMcpApprovalRequest action))
+    (is (= "request_123" (:request-id (impl/sdk-object->clj action))))))
 
 (deftest generic-sdk-input-conversion-covers-template-desktop-settings
   (doseq [target [TemplateCreateParams$Body TemplateUpdateParams$Body]]

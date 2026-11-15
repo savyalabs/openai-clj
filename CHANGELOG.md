@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-14
+
+### Added
+
+- `openai.beta.agents.automations` (beta): `create`, `retrieve`, `update`, `list`,
+  `delete`, `pause`, `resume`, and `invocation-create`, `invocation-retrieve`,
+  `invocation-list`.
+- Support Agent Session prompt-cache and obfuscation options, MCP approval
+  actions and input results, and function-tool `:async` values.
+- Support OCI external keys, image-edit SVG options, response input
+  transformations, Live safety identifiers, and Live transport webhooks.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.105.0. Versions
+  4.102.0 through 4.104.0 were skipped because they were never published to
+  Maven Central.
+
 ## [0.48.0] - 2026-11-05
 
 ### Added

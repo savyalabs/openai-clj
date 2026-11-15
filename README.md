@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.48.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.49.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.48.0"]
+[net.clojars.savya/openai-clj "0.49.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.101.0](https://github.com/openai/openai-java/releases/tag/v4.101.0).
+Tracks [`com.openai/openai-java` 4.105.0](https://github.com/openai/openai-java/releases/tag/v4.105.0).
 
 ## Providers
 
@@ -269,6 +269,7 @@ turns against an agent, subagents spawned within a session, sandboxed
 
 ```clojure
 (require '[openai.beta.agents :as agents]
+         '[openai.beta.agents.automations :as automations]
          '[openai.beta.agents.sessions :as sessions]
          '[openai.beta.agents.sessions.turns :as turns]
          '[openai.beta.agents.sessions.turns.items :as turn-items]
@@ -290,9 +291,17 @@ turns against an agent, subagents spawned within a session, sandboxed
 (agents/retrieve client "agent_...")
 (agents/list client)
 
+;; Automations (beta): create, retrieve, update, list, delete, pause, resume;
+;; invocations: create, retrieve, list.
+(automations/create client {:type :once :name "nightly-review" :run-at 1790000000
+                            :target {:type :existing-session :session-id "sess_..."}})
+(automations/invocation-list client "auto_...")
+
 ;; Sessions: create (optionally streaming), retrieve, update, delete, list
 (sessions/session-create client {:agent-id "agent_..."
-                                 :spend-control {:limit 10000}})
+                                 :spend-control {:limit 10000}
+                                 :prompt-cache-options {:ttl :30m}
+                                 :stream-options {:include-obfuscation true}})
 (sessions/session-create-streaming client {:agent-id "agent_..."})
 
 ;; Turns and items within a session

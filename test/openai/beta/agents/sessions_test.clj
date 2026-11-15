@@ -44,6 +44,17 @@
                                                     {:spend-control {:limit 24}})]
     (is (= 24 (.get (.limit (.get (.spendControl params))))))))
 
+(deftest session-prompt-cache-options-and-stream-options-reach-params
+  (let [create (#'sessions/->session-create-params
+                {:environment {:type :openai-hosted :environment-id "env_123"}
+                 :agent-id "agent_123"
+                 :prompt-cache-options {:ttl :12h}
+                 :stream-options {:include-obfuscation true}})
+        update (#'sessions/->session-update-params "sess_123" {:prompt-cache-options {:ttl :30m}})]
+    (is (= "12h" (.asString (.get (.ttl (.get (.promptCacheOptions create)))))))
+    (is (-> create .streamOptions .get .includeObfuscation .get))
+    (is (= "30m" (.asString (.get (.ttl (.get (.promptCacheOptions update)))))))))
+
 (deftest session-review-converts
   (let [session (impl/sdk-input-object
                  {:id "sess_123" :created-at 1 :last-active-at 2
