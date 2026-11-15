@@ -1275,6 +1275,10 @@
       (.isPresent (.incompleteDetails r)) (assoc :incomplete-details (incomplete-details->map (.get (.incompleteDetails r))))
       (.isPresent (.previousResponseId r)) (assoc :previous-response-id (.get (.previousResponseId r)))
       (.isPresent (.prompt r)) (assoc :prompt (impl/sdk-object->clj (.get (.prompt r))))
+      (.isPresent (.inputTransformations r))
+      (assoc :input-transformations
+             (mapv #(update (impl/sdk-object->clj %) :reason impl/->keyword)
+                   (.get (.inputTransformations r))))
       (.isPresent (.promptCacheDiagnostics r))
       (assoc :prompt-cache-diagnostics
              (prompt-cache-diagnostics->map (.get (.promptCacheDiagnostics r))))

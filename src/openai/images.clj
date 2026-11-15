@@ -22,6 +22,9 @@
                                       ImageEditParams$Quality
                                       ImageEditParams$ResponseFormat
                                       ImageEditParams$Size
+                                      ImageEditParams$Svg
+                                      ImageEditParams$Svg$Reasoning
+                                      ImageEditParams$Svg$Reasoning$ReasoningEffortEnum
                                       ImageEditPartialImageEvent
                                       ImageEditStreamEvent
                                       ImageGenCompletedEvent
@@ -69,6 +72,18 @@
   (let [b (ImageGenerateParams$Svg/builder)]
     (.model b ^String model)
     (when reasoning (.reasoning b (->svg-reasoning reasoning)))
+    (.build b)))
+
+(defn- ->edit-svg-reasoning ^ImageEditParams$Svg$Reasoning [{:keys [effort]}]
+  (let [b (ImageEditParams$Svg$Reasoning/builder)]
+    (when effort (.effort b (ImageEditParams$Svg$Reasoning$ReasoningEffortEnum/of (impl/enum-name effort))))
+    (.build b)))
+
+(defn- ->edit-svg ^ImageEditParams$Svg [{:keys [model reasoning]}]
+  (when-not model (impl/missing-key! :model))
+  (let [b (ImageEditParams$Svg/builder)]
+    (.model b ^String model)
+    (when reasoning (.reasoning b (->edit-svg-reasoning reasoning)))
     (.build b)))
 
 (defn- ->generate-params ^ImageGenerateParams
@@ -154,7 +169,7 @@
 (defn- ->edit-params ^ImageEditParams
   [{:keys [image filename markup markup-filename mask mask-filename prompt model n size response-format
            background input-fidelity output-compression output-format
-           partial-images quality safety-identifier user complexity frame-count frame-duration-ms]}]
+           partial-images quality safety-identifier user complexity frame-count frame-duration-ms svg]}]
   (when-not image (impl/missing-key! :image))
   (when-not prompt (impl/missing-key! :prompt))
   (let [^ImageEditParams$Builder b (ImageEditParams/builder)]
@@ -175,6 +190,7 @@
     (when complexity (.complexity b (ImageEditParams$Complexity/of (impl/enum-name complexity))))
     (when (some? frame-count) (.frameCount b (long frame-count)))
     (when (some? frame-duration-ms) (.frameDurationMs b (long frame-duration-ms)))
+    (when svg (.svg b (->edit-svg svg)))
     (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
     (when user (.user b ^String user))
     (.build b)))

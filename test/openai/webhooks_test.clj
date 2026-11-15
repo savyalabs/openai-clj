@@ -6,6 +6,7 @@
            (com.openai.core.http Headers)
            (com.openai.models.webhooks AgentEnvironmentExpiredWebhookEvent AgentEnvironmentFailedWebhookEvent AgentEnvironmentReadyWebhookEvent AgentEnvironmentSuspendedWebhookEvent
                                        AgentSessionActionRequiredWebhookEvent AgentSessionCreatedWebhookEvent
+                                       LiveTransportConnectedWebhookEvent
                                        RealtimeCallIncomingWebhookEvent SafetyDeactivationIssuedWebhookEvent SafetyWarningIssuedWebhookEvent
                                        UnwrapWebhookEvent WebhookCreateParams WebhookTestParams WebhookUpdateParams WebhookVerificationParams)
            (com.openai.services.blocking WebhookService)
@@ -133,6 +134,15 @@
     (is (= {:type "agent.session.action_required"
             :data {:id "session_2" :required-action {:type "approve"}}}
            (select-keys (impl/sdk-object->clj (UnwrapWebhookEvent/ofAgentSessionActionRequired action-required))
+                        [:type :data])))))
+
+(deftest converts-live-transport-connected-webhook-event
+  (let [event (impl/sdk-input-object
+               {:id "evt_transport" :created-at 3 :object "event"
+                :type "live.transport.connected" :data {:session-id "sess_1" :type "webrtc"}}
+               LiveTransportConnectedWebhookEvent)]
+    (is (= {:type "live.transport.connected" :data {:session-id "sess_1" :type "webrtc"}}
+           (select-keys (impl/sdk-object->clj (UnwrapWebhookEvent/ofLiveTransportConnected event))
                         [:type :data])))))
 
 (deftest webhook-unwrap-agent-environment-events
