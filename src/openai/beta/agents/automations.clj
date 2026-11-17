@@ -44,6 +44,7 @@
                             (= #{:type} (set (keys (:source x))))
                             (keyword? (get-in x [:source :type])))
                        (assoc :source (get-in x [:source :type]))
+                       (string? (:pause-reason x)) (clojure.core/update :pause-reason impl/->keyword)
                        (string? (:skip-reason x)) (clojure.core/update :skip-reason impl/->keyword))
                      x))
                  (impl/sdk-object->clj value)))

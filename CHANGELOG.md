@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-16
+
+### Added
+
+- Return automation pause reasons as kebab-case keywords.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.106.0.
+
 ## [0.49.0] - 2026-11-14
 
 ### Added

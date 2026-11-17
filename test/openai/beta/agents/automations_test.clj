@@ -9,9 +9,10 @@
                                                        AutomationDeleted AutomationListPage
                                                        AutomationListPageResponse AutomationListParams
                                                        AutomationTarget$ExistingSession OneTimeAutomation
-                                                       OneTimeAutomation$Metadata OneTimeAutomation$Status
+                                                       OneTimeAutomation$Metadata OneTimeAutomation$PauseReason
+                                                       OneTimeAutomation$Status
                                                        PeriodicAutomation PeriodicAutomation$Metadata
-                                                       PeriodicAutomation$Status)
+                                                       PeriodicAutomation$PauseReason PeriodicAutomation$Status)
            (com.openai.models.beta.agents.automations.invocations AutomationInvocation
                                                                    AutomationInvocation$Error
                                                                    AutomationInvocation$SkipReason
@@ -52,6 +53,7 @@
          (.id id) (.createdAt 1700000000) (.createdBy (AutomationCreatedBy/ofDeveloper))
          (.expression "0 9 * * *") (.metadata metadata) (.name "daily")
          (.object_ (JsonValue/from "automation")) (.status PeriodicAutomation$Status/ACTIVE)
+         (.pauseReason PeriodicAutomation$PauseReason/TARGET_SESSION_FAILED)
          (.target (existing-session)) (.timezone "UTC") (.type (JsonValue/from "periodic")) .build))))
 
 (defn- once-automation [id]
@@ -62,6 +64,7 @@
          (.id id) (.createdAt 1700000001) (.createdBy (AutomationCreatedBy/ofDeveloper))
          (.metadata metadata) (.name "once") (.object_ (JsonValue/from "automation"))
          (.runAt 1700003600) (.status OneTimeAutomation$Status/COMPLETED)
+         (.pauseReason OneTimeAutomation$PauseReason/TARGET_SESSION_FAILED)
          (.target (existing-session)) (.type (JsonValue/from "once")) .build))))
 
 (defn- invocation [id]
@@ -80,14 +83,14 @@
 (def periodic-map
   {:id "auto_1" :created-at 1700000000 :created-by {:type :developer}
    :expression "0 9 * * *" :metadata {:team "research"} :name "daily"
-   :object "automation" :status :active
+   :object "automation" :pause-reason :target-session-failed :status :active
    :target {:instructions "Run." :session-id "sess_1" :type :existing-session}
    :timezone "UTC" :type :periodic})
 
 (def once-map
   {:id "auto_2" :created-at 1700000001 :created-by {:type :developer}
    :metadata {:team "research"} :name "once" :object "automation"
-   :run-at 1700003600 :status :completed
+   :pause-reason :target-session-failed :run-at 1700003600 :status :completed
    :target {:instructions "Run." :session-id "sess_1" :type :existing-session}
    :type :once})
 
