@@ -75,6 +75,25 @@
     (is (= "4g" (.asString (.get (.memoryLimit environment)))))
     (is (= ["file_1"] (.get (.fileIds environment))))))
 
+(deftest live-responses-delegation-passes-mcp-tools
+  (let [^LiveCreateParams p (#'live/->live-create-params
+                              {:session {:model "gpt-live-1"
+                                         :delegation {:type :responses
+                                                      :responses {:model "gpt-5"
+                                                                  :tools [{:type :mcp
+                                                                           :server-label "docs"
+                                                                           :server-url "https://docs.example/mcp"
+                                                                           :allowed-callers [:direct]
+                                                                           :allowed-tools {:tool-names ["search"]}
+                                                                           :require-approval {:always {:read-only true}}}]}}}
+                               :transport {:sdp "offer"}})
+        tool (-> p .session .delegation .get .asResponses .responses .tools .get first .asTypedMcp)]
+    (is (= "docs" (.get (.serverLabel tool))))
+    (is (= "https://docs.example/mcp" (.get (.serverUrl tool))))
+    (is (= ["direct"] (mapv #(.asString %) (.get (.allowedCallers tool)))))
+    (is (= ["search"] (-> tool .allowedTools .get .asMcpToolFilter .toolNames .get)))
+    (is (true? (-> tool .requireApproval .get .asMcpRequireApprovalFilter .always .get .readOnly .get)))))
+
 (deftest creates-live-session-and-normalizes-response
   (let [build-params (ns-resolve 'openai.live '->live-create-params)
         live-create (ns-resolve 'openai.live 'live-create)]

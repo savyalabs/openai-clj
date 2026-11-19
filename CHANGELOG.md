@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-18
+
+### Added
+
+- Support Responses background options in stable and beta APIs.
+- Support MCP tools in Live Responses delegation.
+
+### Removed
+
+- **Breaking:** Remove Agent Session `:spend-control`, which was removed from
+  openai-java. It is now handled as an unknown additional body property, like
+  other unsupported session keys.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.109.0.
+
 ## [0.50.0] - 2026-11-16
 
 ### Added

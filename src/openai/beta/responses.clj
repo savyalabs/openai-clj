@@ -679,12 +679,22 @@
                             (impl/enum-name context-compression))))
     (.build b)))
 
+(defn- ->background-options ^com.openai.models.beta.responses.ResponseCreateParams$BackgroundOptions
+  [{:keys [completion-window continuation-id]}]
+  (let [b (com.openai.models.beta.responses.ResponseCreateParams$BackgroundOptions/builder)]
+    (when completion-window
+      (.completionWindow b
+                         (com.openai.models.beta.responses.ResponseCreateParams$BackgroundOptions$CompletionWindow/of
+                          (impl/enum-name completion-window))))
+    (when continuation-id (.continuationId b ^String continuation-id))
+    (.build b)))
+
 (defn- ->params ^ResponseCreateParams
   [{:keys [model input instructions max-output-tokens temperature top-p metadata previous-response-id
            store reasoning user tool-choice parallel-tool-calls background include truncation
            prompt-cache-key prompt-cache-options safety-identifier service-tier max-tool-calls
            top-logprobs stream-options betas multi-agent tools json-schema verbosity conversation
-           moderation prompt context-management prompt-cache-retention access-programs image]}]
+           moderation prompt context-management prompt-cache-retention access-programs image background-options]}]
   (when-not model (impl/missing-key! :model))
   (when-not input (impl/missing-key! :input))
   (let [^ResponseCreateParams$Builder b (ResponseCreateParams/builder)]
@@ -701,6 +711,7 @@
     (when top-p (.topP b (double top-p)))
     (when top-logprobs (.topLogprobs b (long top-logprobs)))
     (when (some? background) (.background b (boolean background)))
+    (when background-options (.backgroundOptions b (->background-options background-options)))
     (doseq [i include] (.addInclude b (BetaResponseIncludable/of (impl/enum-name i))))
     (when truncation (.truncation b (ResponseCreateParams$Truncation/of (impl/enum-name truncation))))
     (when prompt-cache-key (.promptCacheKey b ^String prompt-cache-key))

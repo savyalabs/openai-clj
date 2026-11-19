@@ -173,6 +173,8 @@
                                          ResponseCreateParams$AccessPrograms
                                          ResponseCreateParams$AccessPrograms$Builder
                                          ResponseCreateParams$AccessPrograms$Cyber
+                                         ResponseCreateParams$BackgroundOptions
+                                         ResponseCreateParams$BackgroundOptions$CompletionWindow
                                          ResponseCreateParams$Builder
                                          ResponseCreateParams$Input
                                          ResponseCreateParams$Image
@@ -953,13 +955,22 @@
                               (impl/enum-name context-compression))))
     (.build b)))
 
+(defn- ->background-options ^ResponseCreateParams$BackgroundOptions
+  [{:keys [completion-window continuation-id]}]
+  (let [b (ResponseCreateParams$BackgroundOptions/builder)]
+    (when completion-window
+      (.completionWindow b (ResponseCreateParams$BackgroundOptions$CompletionWindow/of
+                            (impl/enum-name completion-window))))
+    (when continuation-id (.continuationId b ^String continuation-id))
+    (.build b)))
+
 (defn- ->params ^ResponseCreateParams
   [{:keys [model input instructions max-output-tokens temperature top-p
            metadata previous-response-id store reasoning user tools tool-choice
            parallel-tool-calls background include truncation prompt-cache-key prompt-cache-options
            safety-identifier service-tier max-tool-calls top-logprobs
            json-schema verbosity conversation stream-options moderation prompt
-           context-management prompt-cache-retention access-programs image]}]
+           context-management prompt-cache-retention access-programs image background-options]}]
   (when-not model (impl/missing-key! :model))
   (when-not input (impl/missing-key! :input))
   (let [^ResponseCreateParams$Builder b (ResponseCreateParams/builder)]
@@ -972,6 +983,7 @@
     (when top-p (.topP b (double top-p)))
     (when top-logprobs (.topLogprobs b (long top-logprobs)))
     (when (some? background) (.background b (boolean background)))
+    (when background-options (.backgroundOptions b (->background-options background-options)))
     (doseq [i include] (.addInclude b (ResponseIncludable/of (impl/enum-name i))))
     (when truncation (.truncation b (ResponseCreateParams$Truncation/of (impl/enum-name truncation))))
     (when prompt-cache-key (.promptCacheKey b ^String prompt-cache-key))
@@ -1359,7 +1371,8 @@
   `:truncation`, `:prompt-cache-key`, `:safety-identifier`, `:service-tier`,
   `:max-tool-calls`, `:top-logprobs`, `:json-schema`, `:verbosity`,
   `:conversation`, `:stream-options`, `:moderation`, `:prompt`,
-  `:context-management`, and `:prompt-cache-retention`.
+  `:context-management`, `:prompt-cache-retention`, and `:background-options`
+  (`:completion-window` of `:soonest`, `:2h`, or `:8h`; `:continuation-id`).
 
   Message-vector input items accept `{:role :system|:developer|:user|:assistant
   :content \"...\"}`, multimodal content vectors containing text, image, or file

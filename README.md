@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.50.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.51.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.50.0"]
+[net.clojars.savya/openai-clj "0.51.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.106.0](https://github.com/openai/openai-java/releases/tag/v4.106.0).
+Tracks [`com.openai/openai-java` 4.109.0](https://github.com/openai/openai-java/releases/tag/v4.109.0).
 
 ## Providers
 
@@ -145,7 +145,9 @@ Request maps support `:model`, `:input`, `:instructions`,
 `:max-output-tokens`, `:max-tool-calls`, `:temperature`, `:top-p`,
 `:top-logprobs`, `:metadata`, `:previous-response-id`, `:store`, `:user`,
 `:reasoning`, `:tools`, `:tool-choice`, `:parallel-tool-calls`, `:background`,
-`:include`, `:truncation`, `:prompt-cache-key`, `:safety-identifier`,
+`:background-options` (`{:completion-window :soonest|:2h|:8h
+`:continuation-id "resp_..."}`), `:include`, `:truncation`, `:prompt-cache-key`,
+`:safety-identifier`,
 `:service-tier`, `:json-schema`, `:verbosity` (`:low`/`:medium`/`:high`),
 `:conversation` (a conversation id string), `:stream-options`
 (`{:include-obfuscation true}`), `:moderation` (`{:model "..."}`), and
@@ -299,7 +301,6 @@ turns against an agent, subagents spawned within a session, sandboxed
 
 ;; Sessions: create (optionally streaming), retrieve, update, delete, list
 (sessions/session-create client {:agent-id "agent_..."
-                                 :spend-control {:limit 10000}
                                  :prompt-cache-options {:ttl :30m}
                                  :stream-options {:include-obfuscation true}})
 (sessions/session-create-streaming client {:agent-id "agent_..."})
