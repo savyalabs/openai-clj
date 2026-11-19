@@ -427,6 +427,16 @@
     (is (= "enabled"
            (-> p .image opt .contextCompression opt .asString)))))
 
+(deftest translates-response-create-background-options
+  (let [p (params {:model "gpt-5.2"
+                   :input "hi"
+                   :background-options {:completion-window :2h
+                                        :continuation-id "resp_123"}})]
+    (is (= "2h"
+           (-> p .backgroundOptions opt .completionWindow opt .asString)))
+    (is (= "resp_123"
+           (-> p .backgroundOptions opt .continuationId opt)))))
+
 (deftest translates-response-compact-image-options
   (let [p (#'openai/->compact-params "resp_1"
                                      {:model "gpt-5.2"

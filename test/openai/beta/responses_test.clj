@@ -118,6 +118,16 @@
     (is (= "enabled"
            (-> p .image impl/opt-get .contextCompression impl/opt-get .asString)))))
 
+(deftest translates-beta-response-create-background-options
+  (let [p (#'responses/->params {:model "gpt-beta"
+                                 :input "hello"
+                                 :background-options {:completion-window :8h
+                                                      :continuation-id "resp_123"}})]
+    (is (= "8h"
+           (-> p .backgroundOptions impl/opt-get .completionWindow impl/opt-get .asString)))
+    (is (= "resp_123"
+           (-> p .backgroundOptions impl/opt-get .continuationId impl/opt-get)))))
+
 (deftest beta-responses-input-prompt-cache-breakpoint-ttl
   (let [p (#'responses/->params
            {:model "gpt-beta"
