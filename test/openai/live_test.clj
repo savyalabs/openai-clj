@@ -11,6 +11,7 @@
                                    ClientDelegation
                                    MediaSessionConfig
                                    MediaSessionConfig$Delegation
+                                   MediaSessionConfig$WakePolicy
                                    MediaSessionForkConfig)
            (com.openai.models.live.sessions SessionAcceptParams
                                              SessionHangupParams
@@ -183,6 +184,20 @@
         accept (#'live/->accept-session {:model :gpt-live-1 :safety-identifier "user_2"})]
     (is (= "user_1" (.get (.safetyIdentifier media))))
     (is (= "user_2" (.get (.safetyIdentifier accept))))))
+
+(deftest live-media-session-wake-policy-and-idle-timeout
+  (let [^MediaSessionConfig media
+        (#'live/->media-session {:model :gpt-live-1
+                                 :wake-policy {:vad-threshold 0.6}
+                                 :idle-timeout-s 30})
+        ^MediaSessionConfig$WakePolicy wake-policy (.get (.wakePolicy media))]
+    (is (= 0.6 (.get (.vadThreshold wake-policy))))
+    (is (= 30 (-> media .idleTimeoutS .get)))))
+
+(deftest live-media-session-accepts-gpt-live-1-1
+  (let [^MediaSessionConfig media
+        (#'live/->media-session {:model :gpt-live-1.1})]
+    (is (= "gpt-live-1.1" (-> media .model .asString)))))
 
 (deftest hangs-up-live-session
   (let [build-params (ns-resolve 'openai.live '->session-hangup-params)

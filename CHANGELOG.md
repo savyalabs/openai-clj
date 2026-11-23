@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-11-22
+
+### Added
+
+- Support Live media session wake policies and idle timeouts.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.111.0.
+
 ## [0.51.0] - 2026-11-18
 
 ### Added
