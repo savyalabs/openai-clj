@@ -12,6 +12,8 @@
                                    MediaSessionConfig$Builder
                                    MediaSessionConfig$Delegation
                                    MediaSessionConfig$Model
+                                   MediaSessionConfig$WakePolicy
+                                   MediaSessionConfig$WakePolicy$Builder
                                    MediaSessionForkConfig
                                    MediaSessionForkConfig$Builder)
            (com.openai.models.live LiveCreateParams$Transport)
@@ -60,17 +62,25 @@
 (defn- ->delegation ^MediaSessionConfig$Delegation [m]
   (impl/sdk-input-object m MediaSessionConfig$Delegation))
 
+(defn- ->wake-policy ^MediaSessionConfig$WakePolicy [{:keys [vad-threshold]}]
+  (let [^MediaSessionConfig$WakePolicy$Builder b (MediaSessionConfig$WakePolicy/builder)]
+    (when vad-threshold (.vadThreshold b (double vad-threshold)))
+    (.build b)))
+
 (defn- ->media-session ^MediaSessionConfig [session]
   (when-not session (impl/missing-key! :session))
-  (let [{:keys [model delegation safety-identifier]} session]
+  (let [{:keys [model delegation idle-timeout-s safety-identifier wake-policy]} session]
     (when-not model (impl/missing-key! :model))
     (let [^MediaSessionConfig$Builder b (MediaSessionConfig/builder)]
       (.model b (MediaSessionConfig$Model/of (if (keyword? model)
                                                (name model)
                                                model)))
       (when delegation (.delegation b (->delegation delegation)))
+      (when idle-timeout-s (.idleTimeoutS b (long idle-timeout-s)))
       (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
-      (put-media-session-properties! b (dissoc session :model :delegation :safety-identifier))
+      (when wake-policy (.wakePolicy b (->wake-policy wake-policy)))
+      (put-media-session-properties! b (dissoc session :model :delegation :idle-timeout-s
+                                               :safety-identifier :wake-policy))
       (.build b))))
 
 (defn- ->live-transport ^LiveCreateParams$Transport [transport]
