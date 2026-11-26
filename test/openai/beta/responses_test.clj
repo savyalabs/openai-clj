@@ -456,6 +456,12 @@
     (is (= "disabled"
            (-> compact .image impl/opt-get .contextCompression impl/opt-get .asString)))))
 
+(deftest translates-beta-compact-safety-identifier
+  (let [compact (#'responses/->compact-params
+                 {:model "gpt-beta" :previous-response-id "resp_1"
+                  :safety-identifier "user_123"})]
+    (is (= "user_123" (impl/opt-get (.safetyIdentifier compact))))))
+
 (deftest maps-beta-responses
   (is (= {:id "resp_beta"
           :model "gpt-beta"
@@ -710,6 +716,19 @@
               (.build))]
     (is (= {:context-compression :disabled}
            (:image (#'responses/beta-compacted-response->map r))))))
+
+(deftest maps-beta-compacted-response-safety-identifier-and-service-tier
+  (let [r (-> (BetaCompactedResponse/builder)
+              (.id "resp_compact")
+              (.createdAt 1234)
+              (.object_ (JsonValue/from "response.compaction"))
+              (.output [])
+              (.usage (empty-usage))
+              (.safetyIdentifier "user_123")
+              (.serviceTier "flex")
+              (.build))]
+    (is (= "user_123" (:safety-identifier (#'responses/beta-compacted-response->map r))))
+    (is (= :flex (:service-tier (#'responses/beta-compacted-response->map r))))))
 
 (deftest maps-beta-token-count-response
   (let [r (-> (InputTokenCountResponse/builder)

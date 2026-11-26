@@ -274,10 +274,32 @@
 
 (deftest builds-organization-spend-limit-update-params
   (let [f (some-> (ns-resolve 'openai.admin '->spend-limit-update-params) deref)
-        ^com.openai.models.admin.organization.spendlimit.SpendLimitUpdateParams p (f {:currency :usd :interval :month :threshold-amount 2500})]
+        ^com.openai.models.admin.organization.spendlimit.SpendLimitUpdateParams p
+        (f {:currency :usd :interval :month :threshold-amount 2500
+            :notification-channel {:recipients ["ops@example.com"]
+                                   :subject-prefix "OpenAI spend"}})]
     (is (= :usd (impl/->keyword (.currency p))))
     (is (= :month (impl/->keyword (.interval p))))
-    (is (= 2500 (.thresholdAmount p)))))
+    (is (= 2500 (.thresholdAmount p)))
+    (is (= ["ops@example.com"] (vec (impl/opt-get (.recipients (impl/opt-get (.notificationChannel p)))))))
+    (is (= "OpenAI spend" (impl/opt-get (.subjectPrefix (impl/opt-get (.notificationChannel p))))))))
+
+(deftest maps-organization-spend-limit-notification-channel
+  (let [channel (-> (com.openai.models.admin.organization.spendlimit.OrganizationSpendLimit$NotificationChannel/builder)
+                    (.recipients ["ops@example.com"])
+                    (.subjectPrefix "OpenAI spend")
+                    (.build))
+        limit (-> (OrganizationSpendLimit/builder)
+                  (.currency (OrganizationSpendLimit$Currency/of "usd"))
+                  (.enforcement (-> (OrganizationSpendLimit$Enforcement/builder)
+                                    (.status (OrganizationSpendLimit$Enforcement$Status/of "enforcing"))
+                                    (.build)))
+                  (.interval (OrganizationSpendLimit$Interval/of "month"))
+                  (.notificationChannel channel)
+                  (.thresholdAmount 2500)
+                  (.build))]
+    (is (= {:recipients ["ops@example.com"] :subject-prefix "OpenAI spend"}
+           (:notification-channel (#'admin/spend-limit->map limit))))))
 
 (deftest converts-project-spend-limit
   (let [enforcement (-> (ProjectSpendLimit$Enforcement/builder)
@@ -293,11 +315,33 @@
 
 (deftest builds-project-spend-limit-update-params
   (let [f (some-> (ns-resolve 'openai.admin.projects '->spend-limit-update-params) deref)
-        ^com.openai.models.admin.organization.projects.spendlimit.SpendLimitUpdateParams p (f "proj_1" {:currency :usd :interval :month :threshold-amount 3500})]
+        ^com.openai.models.admin.organization.projects.spendlimit.SpendLimitUpdateParams p
+        (f "proj_1" {:currency :usd :interval :month :threshold-amount 3500
+                      :notification-channel {:recipients ["ops@example.com"]
+                                             :subject-prefix "OpenAI spend"}})]
     (is (= "proj_1" (impl/opt-get (.projectId p))))
     (is (= :usd (impl/->keyword (.currency p))))
     (is (= :month (impl/->keyword (.interval p))))
-    (is (= 3500 (.thresholdAmount p)))))
+    (is (= 3500 (.thresholdAmount p)))
+    (is (= ["ops@example.com"] (vec (impl/opt-get (.recipients (impl/opt-get (.notificationChannel p)))))))
+    (is (= "OpenAI spend" (impl/opt-get (.subjectPrefix (impl/opt-get (.notificationChannel p))))))))
+
+(deftest maps-project-spend-limit-notification-channel
+  (let [channel (-> (com.openai.models.admin.organization.projects.spendlimit.ProjectSpendLimit$NotificationChannel/builder)
+                    (.recipients ["ops@example.com"])
+                    (.subjectPrefix "OpenAI spend")
+                    (.build))
+        limit (-> (ProjectSpendLimit/builder)
+                  (.currency (ProjectSpendLimit$Currency/of "usd"))
+                  (.enforcement (-> (ProjectSpendLimit$Enforcement/builder)
+                                    (.status (ProjectSpendLimit$Enforcement$Status/of "inactive"))
+                                    (.build)))
+                  (.interval (ProjectSpendLimit$Interval/of "month"))
+                  (.notificationChannel channel)
+                  (.thresholdAmount 3500)
+                  (.build))]
+    (is (= {:recipients ["ops@example.com"] :subject-prefix "OpenAI spend"}
+           (:notification-channel (#'projects/spend-limit->map limit))))))
 
 (deftest builds-service-account-api-key-create-params
   (let [f (some-> (ns-resolve 'openai.admin.projects '->service-account-api-key-create-params) deref)
