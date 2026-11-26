@@ -15,6 +15,11 @@
     (is (= 1 (count (opt (.items p)))))
     (is (= "hello" (.asTextInput content)))))
 
+(deftest conversation-create-safety-identifier-reaches-sdk-params
+  (let [^ConversationCreateParams p
+        (#'conversations/->create-params {:safety-identifier "user_123"})]
+    (is (= "user_123" (opt (.safetyIdentifier p))))))
+
 (deftest exposes-item-prefix-api
   (doseq [sym '[item-create item-retrieve item-list item-delete]]
     (is (fn? (some-> (ns-resolve 'openai.conversations sym) deref)))))

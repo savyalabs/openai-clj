@@ -162,7 +162,7 @@
       (.build)))
 
 (defn- ->session-update-params ^SessionUpdateParams
-  [session-id {:keys [metadata review spend-control prompt-cache-options] :as req}]
+  [session-id {:keys [metadata review spend-control prompt-cache-options vault-ids] :as req}]
   (when-not session-id (impl/missing-key! :session-id))
   (let [b (SessionUpdateParams/builder)]
     (.sessionId b ^String session-id)
@@ -170,7 +170,8 @@
     (when review (.review b (SessionUpdateParams$Review/of (impl/enum-name review))))
     (when spend-control (.spendControl b (->update-spend-control spend-control)))
     (when prompt-cache-options (.promptCacheOptions b (->update-prompt-cache-options prompt-cache-options)))
-    (doseq [[k v] (dissoc req :metadata :review :spend-control :prompt-cache-options)]
+    (when vault-ids (.vaultIds b ^java.util.List (vec vault-ids)))
+    (doseq [[k v] (dissoc req :metadata :review :spend-control :prompt-cache-options :vault-ids)]
       (.putAdditionalBodyProperty b (wire-name k) (json-value v)))
     (.build b)))
 

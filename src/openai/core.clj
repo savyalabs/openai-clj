@@ -2233,7 +2233,11 @@
              :usage (usage->map (.usage r))
              :created-at (.createdAt r)}
       (.isPresent (.image r))
-      (assoc :image (image-config->map (.get (.image r)))))))
+      (assoc :image (image-config->map (.get (.image r))))
+      (.isPresent (.safetyIdentifier r))
+      (assoc :safety-identifier (impl/opt-get (.safetyIdentifier r)))
+      (.isPresent (.serviceTier r))
+      (assoc :service-tier (impl/->keyword (impl/opt-get (.serviceTier r)))))))
 
 (defn- ->compact-image ^ResponseCompactParams$Image [{:keys [context-compression]}]
   (let [b (ResponseCompactParams$Image/builder)]
@@ -2242,12 +2246,13 @@
                               (impl/enum-name context-compression))))
     (.build b)))
 
-(defn- ->compact-params ^ResponseCompactParams [response-id {:keys [model image]}]
+(defn- ->compact-params ^ResponseCompactParams [response-id {:keys [model image safety-identifier]}]
   (when-not model (impl/missing-key! :model))
   (let [b (ResponseCompactParams/builder)]
     (.model b ^String model)
     (.previousResponseId b ^String response-id)
     (when image (.image b (->compact-image image)))
+    (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
     (.build b)))
 
 (defn compact

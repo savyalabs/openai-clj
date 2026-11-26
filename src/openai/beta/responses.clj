@@ -770,7 +770,7 @@
     (.build b)))
 
 (defn- ->compact-params ^ResponseCompactParams
-  [{:keys [model previous-response-id input instructions prompt-cache-key service-tier betas image]}]
+  [{:keys [model previous-response-id input instructions prompt-cache-key safety-identifier service-tier betas image]}]
   (let [^ResponseCompactParams$Builder b (ResponseCompactParams/builder)]
     (when model (.model b ^String model))
     (when previous-response-id (.previousResponseId b ^String previous-response-id))
@@ -780,6 +780,7 @@
         (.inputOfBetaResponseInputItems b ^java.util.List (mapv ->input-item input))))
     (when instructions (.instructions b ^String instructions))
     (when prompt-cache-key (.promptCacheKey b ^String prompt-cache-key))
+    (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
     (when service-tier (.serviceTier b (ResponseCompactParams$ServiceTier/of (impl/enum-name service-tier))))
     (when image
       (let [ib (com.openai.models.beta.responses.ResponseCompactParams$Image/builder)]
@@ -915,7 +916,11 @@
              :text (impl/output-text items)
              :usage (:usage m)
              :created-at (:created-at m)}
-      (:image m) (assoc :image (image-config->map (:image m))))))
+      (:image m) (assoc :image (image-config->map (:image m)))
+      (.isPresent (.safetyIdentifier response))
+      (assoc :safety-identifier (impl/opt-get (.safetyIdentifier response)))
+      (.isPresent (.serviceTier response))
+      (assoc :service-tier (impl/->keyword (impl/opt-get (.serviceTier response)))))))
 
 (defn- input-token-count-response->map ^clojure.lang.IPersistentMap
   [^InputTokenCountResponse response]

@@ -9,7 +9,7 @@
            (com.openai.models.admin.organization.projects.groups GroupCreateParams GroupDeleteParams GroupDeleteResponse GroupListPage GroupListParams GroupListParams$Order GroupRetrieveParams GroupRetrieveParams$GroupType ProjectGroup)
            (com.openai.models.admin.organization.projects.serviceaccounts.apikeys ApiKeyCreateParams ApiKeyCreateResponse)
            (com.openai.models.admin.organization.projects.servicetiersettings ProjectOptionalServiceTier ProjectServiceTierSettings ServiceTierSettingRetrieveParams ServiceTierSettingUpdateParams ServiceTierSettingUpdateParams$Default)
-           (com.openai.models.admin.organization.projects.spendlimit ProjectSpendLimit ProjectSpendLimitDeleted SpendLimitUpdateParams SpendLimitUpdateParams$Currency SpendLimitUpdateParams$Interval)
+           (com.openai.models.admin.organization.projects.spendlimit ProjectSpendLimit ProjectSpendLimit$NotificationChannel ProjectSpendLimitDeleted SpendLimitUpdateParams SpendLimitUpdateParams$Currency SpendLimitUpdateParams$Interval SpendLimitUpdateParams$NotificationChannel SpendLimitUpdateParams$NotificationChannel$Builder)
            (com.openai.models.admin.organization.roles Role)
            (com.openai.models.admin.organization.users OrganizationUser)
            (com.openai.services.blocking.admin OrganizationService)
@@ -595,16 +595,35 @@
 
 ;; Spend limits
 
-(defn- ->spend-limit-update-params ^SpendLimitUpdateParams [^String project-id {:keys [currency interval threshold-amount]}]
+(defn- ->spend-limit-notification-channel ^SpendLimitUpdateParams$NotificationChannel
+  [{:keys [recipients subject-prefix]}]
+  (let [^SpendLimitUpdateParams$NotificationChannel$Builder b
+        (SpendLimitUpdateParams$NotificationChannel/builder)]
+    (when recipients (.recipients b ^java.util.List (vec recipients)))
+    (when subject-prefix (.subjectPrefix b ^String subject-prefix))
+    (.build b)))
+
+(defn- ->spend-limit-update-params ^SpendLimitUpdateParams
+  [^String project-id {:keys [currency interval threshold-amount notification-channel]}]
   (when-not project-id (impl/missing-key! :project-id)) (when-not currency (impl/missing-key! :currency))
   (when-not interval (impl/missing-key! :interval)) (when-not (some? threshold-amount) (impl/missing-key! :threshold-amount))
-  (-> (SpendLimitUpdateParams/builder) (.projectId project-id)
-      (.currency (SpendLimitUpdateParams$Currency/of (impl/enum-name currency)))
-      (.interval (SpendLimitUpdateParams$Interval/of (impl/enum-name interval)))
-      (.thresholdAmount (long threshold-amount)) (.build)))
+  (let [b (SpendLimitUpdateParams/builder)]
+    (.projectId b project-id)
+    (.currency b (SpendLimitUpdateParams$Currency/of (impl/enum-name currency)))
+    (.interval b (SpendLimitUpdateParams$Interval/of (impl/enum-name interval)))
+    (.thresholdAmount b (long threshold-amount))
+    (when notification-channel
+      (.notificationChannel b (->spend-limit-notification-channel notification-channel)))
+    (.build b)))
 (defn- spend-limit->map [^ProjectSpendLimit a]
-  {:currency (impl/->keyword (.currency a)) :enforcement (impl/->keyword (.status (.enforcement a)))
-   :interval (impl/->keyword (.interval a)) :threshold-amount (.thresholdAmount a)})
+  (cond-> {:currency (impl/->keyword (.currency a)) :enforcement (impl/->keyword (.status (.enforcement a)))
+           :interval (impl/->keyword (.interval a)) :threshold-amount (.thresholdAmount a)}
+    (.isPresent (.notificationChannel a))
+    (assoc :notification-channel
+           (let [^ProjectSpendLimit$NotificationChannel channel (impl/opt-get (.notificationChannel a))]
+             (cond-> {:recipients (vec (.recipients channel))}
+               (.isPresent (.subjectPrefix channel))
+               (assoc :subject-prefix (impl/opt-get (.subjectPrefix channel))))))))
 (defn- spend-limit-deleted->map [^ProjectSpendLimitDeleted a] {:deleted (.deleted a)})
 (defn spend-limit-retrieve [^OpenAIClient client ^String project-id]
   (impl/with-api-errors (let [^SpendLimitService s (.spendLimit (projects-service client))] (spend-limit->map (.retrieve s project-id)))))

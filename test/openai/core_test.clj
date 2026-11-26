@@ -449,6 +449,12 @@
     (is (= "disabled"
            (-> p .image opt .contextCompression opt .asString)))))
 
+(deftest translates-response-compact-safety-identifier
+  (let [p (#'openai/->compact-params "resp_1"
+                                     {:model "gpt-5.2"
+                                      :safety-identifier "user_123"})]
+    (is (= "user_123" (opt (.safetyIdentifier p))))))
+
 (deftest translates-metadata
   (let [p (params {:model "gpt-5.2"
                    :input "hi"
@@ -1417,6 +1423,27 @@
                       (.build))]
     (is (= {:context-compression :enabled}
            (:image (#'openai/compacted-response->map compacted))))))
+
+(deftest maps-compacted-response-safety-identifier-and-service-tier
+  (let [compacted (-> (com.openai.models.responses.CompactedResponse/builder)
+                      (.id "resp_compact")
+                      (.createdAt 1234)
+                      (.object_ (JsonValue/from "response.compaction"))
+                      (.output [])
+                      (.usage (-> (ResponseUsage/builder)
+                                  (.inputTokens 10)
+                                  (.inputTokensDetails (-> (ResponseUsage$InputTokensDetails/builder)
+                                                           (.cacheWriteTokens 0) (.cachedTokens 0) (.build)))
+                                  (.outputTokens 20)
+                                  (.outputTokensDetails (-> (ResponseUsage$OutputTokensDetails/builder)
+                                                             (.reasoningTokens 0) (.build)))
+                                  (.totalTokens 30)
+                                  (.build)))
+                      (.safetyIdentifier "user_123")
+                      (.serviceTier "flex")
+                      (.build))]
+    (is (= "user_123" (:safety-identifier (#'openai/compacted-response->map compacted))))
+    (is (= :flex (:service-tier (#'openai/compacted-response->map compacted))))))
 
 (deftest translates-response-access-programs
   (let [p (params {:model "gpt-5.2" :input "hello"

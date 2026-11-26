@@ -12,7 +12,7 @@
            (com.openai.models.admin.organization.groups Group GroupCreateParams GroupDeleteResponse GroupListPage GroupListParams GroupListParams$Order GroupUpdateParams GroupUpdateResponse)
            (com.openai.models.admin.organization.invites Invite Invite$Project InviteCreateParams InviteCreateParams$Project InviteCreateParams$Project$Role InviteCreateParams$Role InviteDeleteResponse InviteListPage InviteListParams)
            (com.openai.models.admin.organization.projects Project ProjectCreateParams ProjectListPage ProjectListParams ProjectUpdateParams)
-           (com.openai.models.admin.organization.spendlimit OrganizationSpendLimit OrganizationSpendLimitDeleted SpendLimitUpdateParams SpendLimitUpdateParams$Currency SpendLimitUpdateParams$Interval)
+           (com.openai.models.admin.organization.spendlimit OrganizationSpendLimit OrganizationSpendLimit$NotificationChannel OrganizationSpendLimitDeleted SpendLimitUpdateParams SpendLimitUpdateParams$Currency SpendLimitUpdateParams$Interval SpendLimitUpdateParams$NotificationChannel SpendLimitUpdateParams$NotificationChannel$Builder)
            (com.openai.models.admin.organization.spendalerts OrganizationSpendAlert OrganizationSpendAlertDeleted OrganizationSpendAlert$NotificationChannel SpendAlertCreateParams SpendAlertCreateParams$Currency SpendAlertCreateParams$Interval SpendAlertCreateParams$NotificationChannel SpendAlertListPage SpendAlertListParams SpendAlertListParams$Order SpendAlertUpdateParams SpendAlertUpdateParams$Currency SpendAlertUpdateParams$Interval SpendAlertUpdateParams$NotificationChannel)
            (com.openai.models.admin.organization.roles Role RoleCreateParams RoleDeleteResponse RoleListPage RoleListParams RoleListParams$Order RoleUpdateParams)
            (com.openai.models.admin.organization.users OrganizationUser UserDeleteResponse UserListPage UserListParams UserUpdateParams)
@@ -649,16 +649,34 @@
 
 ;; Spend limits
 
-(defn- ->spend-limit-update-params ^SpendLimitUpdateParams [{:keys [currency interval threshold-amount]}]
+(defn- ->spend-limit-notification-channel ^SpendLimitUpdateParams$NotificationChannel
+  [{:keys [recipients subject-prefix]}]
+  (let [^SpendLimitUpdateParams$NotificationChannel$Builder b
+        (SpendLimitUpdateParams$NotificationChannel/builder)]
+    (when recipients (.recipients b ^java.util.List (vec recipients)))
+    (when subject-prefix (.subjectPrefix b ^String subject-prefix))
+    (.build b)))
+
+(defn- ->spend-limit-update-params ^SpendLimitUpdateParams
+  [{:keys [currency interval threshold-amount notification-channel]}]
   (when-not currency (impl/missing-key! :currency)) (when-not interval (impl/missing-key! :interval))
   (when-not (some? threshold-amount) (impl/missing-key! :threshold-amount))
-  (-> (SpendLimitUpdateParams/builder)
-      (.currency (SpendLimitUpdateParams$Currency/of (impl/enum-name currency)))
-      (.interval (SpendLimitUpdateParams$Interval/of (impl/enum-name interval)))
-      (.thresholdAmount (long threshold-amount)) (.build)))
+  (let [b (SpendLimitUpdateParams/builder)]
+    (.currency b (SpendLimitUpdateParams$Currency/of (impl/enum-name currency)))
+    (.interval b (SpendLimitUpdateParams$Interval/of (impl/enum-name interval)))
+    (.thresholdAmount b (long threshold-amount))
+    (when notification-channel
+      (.notificationChannel b (->spend-limit-notification-channel notification-channel)))
+    (.build b)))
 (defn- spend-limit->map [^OrganizationSpendLimit a]
-  {:currency (impl/->keyword (.currency a)) :enforcement (impl/->keyword (.status (.enforcement a)))
-   :interval (impl/->keyword (.interval a)) :threshold-amount (.thresholdAmount a)})
+  (cond-> {:currency (impl/->keyword (.currency a)) :enforcement (impl/->keyword (.status (.enforcement a)))
+           :interval (impl/->keyword (.interval a)) :threshold-amount (.thresholdAmount a)}
+    (.isPresent (.notificationChannel a))
+    (assoc :notification-channel
+           (let [^OrganizationSpendLimit$NotificationChannel channel (impl/opt-get (.notificationChannel a))]
+             (cond-> {:recipients (vec (.recipients channel))}
+               (.isPresent (.subjectPrefix channel))
+               (assoc :subject-prefix (impl/opt-get (.subjectPrefix channel))))))))
 (defn- spend-limit-deleted->map [^OrganizationSpendLimitDeleted a] {:deleted (.deleted a)})
 (defn spend-limit-retrieve [^OpenAIClient client]
   (impl/with-api-errors (let [^SpendLimitService s (.spendLimit (organization client))] (spend-limit->map (.retrieve s)))))

@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-26
+
+### Added
+
+- Support organization and project spend-limit notification channels.
+- Support Agent Session update `:vault-ids`.
+- Support Responses compact and conversation-create safety identifiers, plus
+  compacted response safety identifiers and service tiers in stable and beta APIs.
+
+### Changed
+
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.114.0.
+
 ## [0.53.0] - 2026-11-25
 
 ### Added

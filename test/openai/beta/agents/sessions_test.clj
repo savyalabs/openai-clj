@@ -67,6 +67,12 @@
     (is (-> create .streamOptions .get .includeObfuscation .get))
     (is (= "30m" (.asString (.get (.ttl (.get (.promptCacheOptions update)))))))))
 
+(deftest session-update-vault-ids-reach-typed-sdk-params
+  (let [^SessionUpdateParams params
+        (#'sessions/->session-update-params "sess_123" {:vault-ids ["vault_1" "vault_2"]})]
+    (is (= ["vault_1" "vault_2"] (vec (.get (.vaultIds params)))))
+    (is (nil? (get (._additionalBodyProperties params) "vault_ids")))))
+
 (deftest session-review-converts
   (let [session (impl/sdk-input-object
                  {:id "sess_123" :created-at 1 :last-active-at 2

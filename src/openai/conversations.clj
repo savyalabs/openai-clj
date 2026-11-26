@@ -22,10 +22,11 @@
       (.additionalProperties ^java.util.Map (impl/->json-value-properties m))
       (.build)))
 
-(defn- ->create-params ^ConversationCreateParams [{:keys [items metadata]}]
+(defn- ->create-params ^ConversationCreateParams [{:keys [items metadata safety-identifier]}]
   (let [b (ConversationCreateParams/builder)]
     (when items (.items b ^java.util.List (mapv core/response-input-item items)))
     (when metadata (.metadata b (->metadata metadata)))
+    (when safety-identifier (.safetyIdentifier b ^String safety-identifier))
     (.build b)))
 
 (defn- conversation->map [^Conversation c]

@@ -17,18 +17,18 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.53.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.54.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.53.0"]
+[net.clojars.savya/openai-clj "0.54.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.113.0](https://github.com/openai/openai-java/releases/tag/v4.113.0).
+Tracks [`com.openai/openai-java` 4.114.0](https://github.com/openai/openai-java/releases/tag/v4.114.0).
 
 ## SDK helper wrappers
 
@@ -161,8 +161,8 @@ Request maps support `:model`, `:input`, `:instructions`,
 `:conversation` (a conversation id string), `:stream-options`
 (`{:include-obfuscation true}`), `:moderation` (`{:model "..."}`), and
 `:image` (`{:context-compression :auto|:enabled|:disabled}`). The same
-`:image` map is accepted by `compact` as its options map; `compact` also
-requires `:model` in that options map.
+`:image` map and `:safety-identifier` are accepted by `compact` as options;
+`compact` also requires `:model` in that options map.
 
 Input can be a string or a vector of message items. Message content can be a
 string or a vector of multimodal parts:
