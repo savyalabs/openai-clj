@@ -1,11 +1,14 @@
 (ns openai.core-test
   (:require [clojure.test :refer [deftest is testing]]
             [openai.core :as openai]
-            [openai.impl :as impl])
+            [openai.impl :as impl]
+            [openai.wire-level-test :as wire])
   (:import (com.openai.auth SubjectTokenProvider
                             SubjectTokenType
                             WorkloadIdentity)
            (com.openai.client OpenAIClient)
+           (com.openai.helpers ChatCompletionToolRunner$Builder)
+           (com.sun.net.httpserver HttpExchange)
            (com.openai.core JsonValue LogLevel)
            (com.openai.models.chat.completions ChatCompletion
                                                ChatCompletion$Choice
@@ -2671,3 +2674,73 @@
                                (.build)))]
     (is (= {:code :invalid-prompt :message "Bad prompt"} mapped))
     (is (not (contains? mapped :misalignment)))))
+
+(deftest run-chat-tools-executes-a-tool-round-trip
+  (let [requests (atom [])
+        first-response "{\"id\":\"chat_1\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"gpt\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"add\",\"arguments\":\"{\\\"a\\\":2,\\\"b\\\":3}\"}}]},\"finish_reason\":\"tool_calls\"}]}"
+        done-response "{\"id\":\"chat_2\",\"object\":\"chat.completion\",\"created\":2,\"model\":\"gpt\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"5\"},\"finish_reason\":\"stop\"}]}"
+        fixture (wire/start-http-fixture!
+                 (fn [^HttpExchange exchange]
+                   (swap! requests conj (wire/read-bytes exchange))
+                   (wire/respond! exchange 200 "application/json"
+                                  (if (= 1 (count @requests)) first-response done-response))))
+        client (openai/client {:api-key "test-key" :base-url (:base-url fixture)})]
+    (try
+      (let [result (openai/run-chat-tools
+                    client
+                    {:model "gpt" :messages [{:role :user :content "add 2 and 3"}]}
+                    {:add {:definition {:type :function :name "add" :parameters {:type "object"}}
+                           :fn (fn [{:keys [a b]}] {:sum (+ a b) :input-a a})}})]
+        (is (= "5" (get-in result [:completion :text])))
+        (is (= 2 (count @requests)))
+        (let [second-request (impl/parse-json (second @requests))
+              tool-message (some #(when (= "tool" (:role %)) %) (:messages second-request))]
+          (is (= "tool" (:role tool-message)))
+          (is (= "call_1" (:tool_call_id tool-message)))
+          (is (= {:sum 5 :input-a 2}
+                 (impl/parse-json (:content tool-message))))))
+      (finally (.close client) (wire/stop-http-fixture! fixture)))))
+
+(deftest run-chat-tools-normalizes-api-errors-and-keeps-run-context
+  (let [fixture (wire/start-http-fixture!
+                 (fn [^HttpExchange exchange]
+                   (wire/read-bytes exchange)
+                   (wire/respond! exchange 400 "application/json"
+                                  "{\"error\":{\"message\":\"bad request\",\"type\":\"invalid_request_error\"}}")))
+        client (openai/client {:api-key "test-key" :base-url (:base-url fixture)})]
+    (try
+      (let [error (try
+                    (openai/run-chat-tools
+                     client
+                     {:model "gpt" :messages [{:role :user :content "hello"}]}
+                     {:echo {:definition {:type :function :name "echo" :parameters {:type "object"}}
+                             :fn identity}})
+                    nil
+                    (catch clojure.lang.ExceptionInfo e e))]
+        (is (= {:openai/error :api-error :status 400 :error-type :bad-request}
+               (select-keys (ex-data error) [:openai/error :status :error-type])))
+        (is (vector? (:messages (ex-data error))))
+        (is (contains? (ex-data error) :last-completion))
+        (is (contains? (ex-data error) :tool-call-id)))
+      (finally (.close client) (wire/stop-http-fixture! fixture)))))
+
+(deftest custom-request-normalizes-api-errors
+  (let [fixture (wire/start-http-fixture!
+                 (fn [^HttpExchange exchange]
+                   (wire/read-bytes exchange)
+                   (wire/respond! exchange 400 "application/json"
+                                  "{\"error\":{\"message\":\"bad request\",\"type\":\"invalid_request_error\"}}")))
+        client (openai/client {:api-key "test-key" :base-url (:base-url fixture)})]
+    (try
+      (let [error (try
+                    (openai/custom-request client :get "/test")
+                    nil
+                    (catch clojure.lang.ExceptionInfo e e))]
+        (is (= {:openai/error :api-error :status 400 :error-type :bad-request}
+               (ex-data error))))
+      (finally (.close client) (wire/stop-http-fixture! fixture)))))
+
+(deftest chat-tool-runner-internal-tools-accessor-is-present
+  (is (.getMethod ChatCompletionToolRunner$Builder
+                  "getTools$openai_java_core"
+                  (make-array Class 0))))

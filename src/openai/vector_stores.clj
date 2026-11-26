@@ -4,6 +4,10 @@
   (:require [openai.impl :as impl])
   (:import (com.openai.client OpenAIClient)
            (com.openai.core JsonValue)
+           (com.openai.helpers VectorStoreHelpers VectorStoreHelpers$Builder VectorStoreHelpers$UploadException)
+           (java.io File)
+           (java.nio.file Path)
+           (java.time Duration)
            (com.openai.models ComparisonFilter ComparisonFilter$Builder ComparisonFilter$Type
                               CompoundFilter CompoundFilter$Builder CompoundFilter$Type)
            (com.openai.models.vectorstores AutoFileChunkingStrategyParam
@@ -45,6 +49,8 @@
            (com.openai.services.blocking.vectorstores FileBatchService FileService)))
 
 (set! *warn-on-reflection* true)
+
+(declare ->file-retrieve-params ->batch-retrieve-params)
 
 (defn- ->metadata ^VectorStoreCreateParams$Metadata [m]
   (let [^VectorStoreCreateParams$Metadata$Builder b
@@ -269,6 +275,29 @@
     (let [^FileService svc (.files (.vectorStores client))]
       (vector-store-file->map (.create svc (->file-create-params store-id req))))))
 
+(defn- ->helpers ^VectorStoreHelpers [^OpenAIClient client {:keys [poll-interval timeout max-concurrency]}]
+  (let [^VectorStoreHelpers$Builder b (VectorStoreHelpers/builder)]
+    (.client b client)
+    (when poll-interval (.pollInterval b (Duration/ofMillis (long poll-interval))))
+    (when timeout (.timeout b (Duration/ofMillis (long timeout))))
+    (when max-concurrency (.maxConcurrency b (int max-concurrency)))
+    (.build b)))
+
+(defn create-file-and-poll
+  "SDK helper wrapper. Create a vector-store file and poll until it completes.
+  Options accept `:poll-interval`, `:timeout` (milliseconds), and `:max-concurrency`."
+  ([^OpenAIClient client ^String store-id req] (create-file-and-poll client store-id req {}))
+  ([^OpenAIClient client ^String store-id req opts]
+   (impl/with-api-errors
+     (vector-store-file->map (.createFileAndPoll (->helpers client opts) (->file-create-params store-id req))))))
+
+(defn poll-file
+  "SDK helper wrapper. Poll a vector-store file until it completes."
+  ([^OpenAIClient client ^String store-id ^String file-id] (poll-file client store-id file-id {}))
+  ([^OpenAIClient client ^String store-id ^String file-id opts]
+   (impl/with-api-errors
+     (vector-store-file->map (.pollFile (->helpers client opts) (->file-retrieve-params store-id file-id))))))
+
 (defn- ->file-retrieve-params ^FileRetrieveParams [^String store-id ^String file-id]
   (-> (FileRetrieveParams/builder) (.vectorStoreId store-id) (.fileId file-id) (.build)))
 
@@ -355,6 +384,49 @@
   (impl/with-api-errors
     (let [^FileBatchService svc (.fileBatches (.vectorStores client))]
       (file-batch->map (.create svc (->batch-create-params store-id req))))))
+
+(defn create-batch-and-poll
+  "SDK helper wrapper. Create a vector-store file batch and poll until it completes."
+  ([^OpenAIClient client ^String store-id req] (create-batch-and-poll client store-id req {}))
+  ([^OpenAIClient client ^String store-id req opts]
+   (impl/with-api-errors
+     (file-batch->map (.createBatchAndPoll (->helpers client opts) (->batch-create-params store-id req))))))
+
+(defn poll-batch
+  "SDK helper wrapper. Poll a vector-store file batch until it completes."
+  ([^OpenAIClient client ^String store-id ^String batch-id] (poll-batch client store-id batch-id {}))
+  ([^OpenAIClient client ^String store-id ^String batch-id opts]
+   (impl/with-api-errors
+     (file-batch->map (.pollBatch (->helpers client opts) (->batch-retrieve-params store-id batch-id))))))
+
+(defn- ->path ^Path [x]
+  (cond (instance? Path x) x
+        (instance? File x) (.toPath ^File x)
+        :else (java.nio.file.Paths/get ^String x (make-array String 0))))
+
+(defn- rethrow-upload-exception! [^VectorStoreHelpers$UploadException e]
+  (let [upload-data {:uploaded-file-ids (vec (.uploadedFileIds e))}
+        cause (.getCause e)]
+    (if (instance? com.openai.errors.OpenAIException cause)
+      (try
+        (impl/with-api-errors (throw cause))
+        (catch clojure.lang.ExceptionInfo api-error
+          (throw (ex-info (.getMessage api-error)
+                          (merge (ex-data api-error) upload-data)
+                          e))))
+      (throw (ex-info (.getMessage e) upload-data e)))))
+
+(defn upload-and-poll
+  "SDK helper wrapper. Upload paths and attach them to a vector-store batch.
+  Path values may be strings, `java.io.File`, or `java.nio.file.Path`."
+  ([^OpenAIClient client ^String store-id req paths] (upload-and-poll client store-id req paths {}))
+  ([^OpenAIClient client ^String store-id req paths opts]
+   (try
+     (impl/with-api-errors
+       (file-batch->map (.uploadAndPoll (->helpers client opts) (->batch-create-params store-id req)
+                                        ^java.util.List (mapv ->path paths))))
+     (catch VectorStoreHelpers$UploadException e
+       (rethrow-upload-exception! e)))))
 
 (defn- ->batch-retrieve-params ^FileBatchRetrieveParams [^String store-id ^String batch-id]
   (-> (FileBatchRetrieveParams/builder)

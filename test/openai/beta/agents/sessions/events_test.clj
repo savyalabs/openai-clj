@@ -1,5 +1,6 @@
 (ns openai.beta.agents.sessions.events-test
   (:require [clojure.test :refer [deftest is testing]]
+            [openai.impl :as impl]
             [jsonista.core :as json])
   (:import (com.openai.client OpenAIClient)
            (com.openai.core.http StreamResponse)
@@ -195,3 +196,17 @@
     (is (= "sess_expired" (:session-id (event->map expired))))
     (is (= :agent.session.environment.suspended (:type (event->map suspended))))
     (is (= "sess_suspended" (:session-id (event->map suspended))))))
+
+(deftest session-budget-reached-event-converts
+  (let [session (impl/sdk-input-object
+                 {:id "sess_123" :created-at 1 :last-active-at 2
+                  :environment {:id "env_123" :status "ready" :type "openai_hosted"}
+                  :metadata {} :object "agent_session" :status "idle"
+                  :spend-control {:limit 42 :consumed 42}}
+                 com.openai.models.beta.agents.AgentSession)
+        event (com.openai.models.beta.agents.AgentSessionEvent/ofBudgetReached
+               (-> (com.openai.models.beta.agents.AgentSessionBudgetReachedEvent/builder)
+                   (.eventId "event_1") (.session session) (.build)))
+        event->map (implementation-var 'openai.beta.agents.sessions.events/event->map)]
+    (is (= :agent.session.budget-reached (:type (event->map event))))
+    (is (= 42 (get-in (event->map event) [:session :spend-control :consumed])))))

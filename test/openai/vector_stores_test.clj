@@ -1,7 +1,10 @@
 (ns openai.vector-stores-test
   (:require [clojure.test :refer [deftest is]]
-            [openai.vector-stores :as vector-stores])
-  (:import (com.openai.models.vectorstores VectorStore
+            [openai.core :as openai]
+            [openai.vector-stores :as vector-stores]
+            [openai.wire-level-test :as wire])
+  (:import (com.sun.net.httpserver HttpExchange)
+           (com.openai.models.vectorstores VectorStore
                                                 FileChunkingStrategyParam
                                                 StaticFileChunkingStrategy
                                                 VectorStore$FileCounts
@@ -81,3 +84,19 @@
 (deftest exposes-file-batch-prefix-api
   (doseq [sym '[file-batch-create file-batch-retrieve file-batch-cancel]]
     (is (fn? (some-> (ns-resolve 'openai.vector-stores sym) deref)))))
+
+(deftest vector-store-helper-normalizes-api-errors
+  (let [fixture (wire/start-http-fixture!
+                 (fn [^HttpExchange exchange]
+                   (wire/read-bytes exchange)
+                   (wire/respond! exchange 400 "application/json"
+                                  "{\"error\":{\"message\":\"bad request\",\"type\":\"invalid_request_error\"}}")))
+        client (openai/client {:api-key "test-key" :base-url (:base-url fixture)})]
+    (try
+      (let [error (try
+                    (vector-stores/create-file-and-poll client "vs_123" {:file-id "file_123"})
+                    nil
+                    (catch clojure.lang.ExceptionInfo e e))]
+        (is (= {:openai/error :api-error :status 400 :error-type :bad-request}
+               (ex-data error))))
+      (finally (.close client) (wire/stop-http-fixture! fixture)))))

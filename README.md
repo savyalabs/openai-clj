@@ -17,18 +17,27 @@ official Java SDK.
 deps.edn:
 
 ```clojure
-net.clojars.savya/openai-clj {:mvn/version "0.52.0"}
+net.clojars.savya/openai-clj {:mvn/version "0.53.0"}
 ```
 
 Leiningen:
 
 ```clojure
-[net.clojars.savya/openai-clj "0.52.0"]
+[net.clojars.savya/openai-clj "0.53.0"]
 ```
 
 Supported Clojure versions: 1.10, 1.11, and 1.12.
 
-Tracks [`com.openai/openai-java` 4.111.0](https://github.com/openai/openai-java/releases/tag/v4.111.0).
+Tracks [`com.openai/openai-java` 4.113.0](https://github.com/openai/openai-java/releases/tag/v4.113.0).
+
+## SDK helper wrappers
+
+`openai.core/run-chat-tools` wraps the SDK `ChatCompletionToolRunner` using
+Clojure tool functions. `openai.core/custom-request` wraps `CustomRequests`.
+`openai.vector-stores/create-file-and-poll`, `poll-file`,
+`create-batch-and-poll`, `poll-batch`, and `upload-and-poll` wrap
+`VectorStoreHelpers`; their options include polling interval and timeout in
+milliseconds.
 
 ## Providers
 
