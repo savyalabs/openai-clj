@@ -133,6 +133,13 @@
                (impl/opt-get (.turnId ^TurnRetrieveParams @captured)))))
       (is false "openai.beta.agents.sessions.turns/retrieve-turn is not implemented"))))
 
+(deftest normalizes-session-budget-exceeded-turn-errors
+  (if-let [normalize-value (api-var 'normalize-value)]
+    (is (= :session-budget-exceeded
+           (get-in (normalize-value {:error {:code "session_budget_exceeded"}})
+                   [:error :code])))
+    (is false "Agent Session Turn normalization is not implemented")))
+
 (deftest lists-all-turn-pages-and-normalizes-responses
   (let [list-turns (api-var 'list-turns)]
     (if list-turns

@@ -8,7 +8,10 @@
            (com.openai.client.okhttp OpenAIOkHttpClient
                                       OpenAIOkHttpClient$Builder)
            (com.openai.core JsonValue MultipartField LogLevel)
-           (com.openai.core.http StreamResponse)
+           (com.openai.core.http StreamResponse HttpMethod HttpResponse)
+           (com.openai.helpers ChatCompletionToolRunner ChatCompletionToolRunner$Builder
+                               ChatCompletionToolRunner$Binding ChatCompletionToolRunner$RunException
+                               CustomRequests CustomRequests$Request CustomRequests$Request$Builder)
            (com.openai.auth WorkloadIdentity)
            (java.net InetSocketAddress Proxy Proxy$Type)
            (java.time Duration)
@@ -2006,6 +2009,79 @@
     (let [^ChatService chat (.chat client)
           ^ChatCompletionService svc (.completions chat)]
       (chat-completion->map (.create svc (->chat-params req))))))
+
+(defn- ->tool-runner ^ChatCompletionToolRunner
+  [^OpenAIClient client bindings {:keys [max-turns max-tool-calls]}]
+  (let [^ChatCompletionToolRunner$Builder b (ChatCompletionToolRunner/builder)]
+    (.client b client)
+    (when max-turns (.maxTurns b (int max-turns)))
+    (when max-tool-calls (.maxToolCalls b (int max-tool-calls)))
+    (doseq [[tool-name {:keys [definition fn]}] bindings]
+      ;; The public addTool only accepts a Java class, not an SDK tool definition.
+      (.put (.getTools$openai_java_core b) (name tool-name)
+            (ChatCompletionToolRunner$Binding.
+             (->chat-tool definition)
+             (reify kotlin.jvm.functions.Function1
+               (invoke [_ call]
+                 (reify kotlin.jvm.functions.Function0
+                   (invoke [_]
+                     (let [result (fn (impl/parse-arguments
+                                       (.arguments (.function ^ChatCompletionMessageFunctionToolCall call))))]
+                       (if (or (map? result) (sequential? result))
+                         (JsonValue/from (walk/stringify-keys result))
+                         result)))))))))
+    (.build b)))
+
+(defn- rethrow-run-exception! [^ChatCompletionToolRunner$RunException e]
+  (let [run-data {:messages (mapv impl/sdk-object->clj (.messages e))
+                  :last-completion (some-> (.lastCompletion e) impl/opt-get chat-completion->map)
+                  :tool-call-id (impl/opt-get (.toolCallId e))}
+        cause (.getCause e)]
+    (if (instance? com.openai.errors.OpenAIException cause)
+      (try
+        (impl/with-api-errors (throw cause))
+        (catch clojure.lang.ExceptionInfo api-error
+          (throw (ex-info (.getMessage api-error)
+                          (merge (ex-data api-error) run-data)
+                          e))))
+      (throw (ex-info (.getMessage e) run-data e)))))
+
+(defn run-chat-tools
+  "Run the SDK ChatCompletionToolRunner with Clojure tool bindings.
+
+  Each binding is `{tool-name {:definition <function-tool map> :fn (fn [args-map])}}`.
+  Options accept `:max-turns` and `:max-tool-calls`."
+  ([^OpenAIClient client req bindings] (run-chat-tools client req bindings {}))
+  ([^OpenAIClient client req bindings opts]
+   (impl/with-api-errors
+     (try
+       (let [result (.run (->tool-runner client bindings opts) (->chat-params req))]
+         {:completion (chat-completion->map (.completion result))
+          :messages (mapv impl/sdk-object->clj (.messages result))})
+       (catch ChatCompletionToolRunner$RunException e
+         (rethrow-run-exception! e))))))
+
+(defn custom-request
+  "Execute an SDK CustomRequests request and return `:status`, `:headers`, and `:body`.
+  `method` may be a keyword or string; `body`, `query`, and `headers` are maps."
+  ([^OpenAIClient client method path] (custom-request client method path nil {} {}))
+  ([^OpenAIClient client method path body query headers]
+   (impl/with-api-errors
+     (let [^CustomRequests$Request$Builder b (CustomRequests$Request/builder)]
+       (.method b (HttpMethod/valueOf (str/upper-case (name method))))
+       (.path b ^String path)
+       (when body (.body b (JsonValue/from (walk/stringify-keys body))))
+       (doseq [[k v] query] (.putQueryParam b (name k) (str v)))
+       (doseq [[k v] headers] (.putHeader b (name k) (str v)))
+       (with-open [^HttpResponse response (.execute (CustomRequests/from client) (.build b))]
+         (let [body-text (slurp (.body response))]
+           {:status (.statusCode response)
+            :headers (into {} (.asMap (.headers response)))
+            :body (if (and (seq body-text)
+                           (some-> (.values (.headers response) "content-type") first
+                                   (str/includes? "json")))
+                    (impl/parse-json body-text)
+                    body-text)}))))))
 
 (defn get-chat-completion
   "Retrieve one stored chat completion by id."

@@ -4,8 +4,7 @@
             [openai.core :as openai]
             [openai.impl :as impl]
             [openai.wire-level-test :as wire])
-  (:import (com.openai.core JsonNumber JsonObject)
-           (com.openai.models.beta.agents EnvironmentParam)
+  (:import (com.openai.models.beta.agents EnvironmentParam)
            (com.openai.models.beta.agents.sessions SessionCreateParams SessionUpdateParams)
            (com.sun.net.httpserver HttpExchange)))
 
@@ -34,20 +33,28 @@
     (is (= "env_123"
            (.get (.environmentId (.asOpenAIHosted environment)))))))
 
-(deftest session-create-forwards-removed-spend-control-as-an-unknown-body-property
+(deftest session-spend-control-uses-typed-sdk-properties
   (let [params (#'sessions/->session-create-params
                 {:environment {:type :openai-hosted :environment-id "env_123"}
                  :agent-id "agent_123"
                  :spend-control {:limit 42}})
         ^SessionCreateParams create-params params
         ^SessionUpdateParams update-params (#'sessions/->session-update-params
-                                            "sess_123" {:spend-control {:limit 24}})
-        ^JsonObject create-spend-control (get (._additionalBodyProperties create-params) "spend_control")
-        ^JsonObject update-spend-control (get (._additionalBodyProperties update-params) "spend_control")
-        ^JsonNumber create-limit (get (.values create-spend-control) "limit")
-        ^JsonNumber update-limit (get (.values update-spend-control) "limit")]
-    (is (= 42 (.value create-limit)))
-    (is (= 24 (.value update-limit)))))
+                                            "sess_123" {:spend-control {:limit 24}})]
+    (is (= 42 (-> create-params .spendControl .get .limit .get)))
+    (is (= 24 (-> update-params .spendControl .get .limit .get)))
+    (is (nil? (get (._additionalBodyProperties create-params) "spend_control")))
+    (is (nil? (get (._additionalBodyProperties update-params) "spend_control")))))
+
+(deftest session-output-includes-spend-control
+  (let [session (impl/sdk-input-object
+                 {:id "sess_123" :created-at 1 :last-active-at 2
+                  :environment {:id "env_123" :status "ready" :type "openai_hosted"}
+                  :metadata {} :object "agent_session" :status "idle"
+                  :spend-control {:limit 42 :consumed 7}}
+                 com.openai.models.beta.agents.AgentSession)]
+    (is (= {:limit 42 :consumed 7}
+           (:spend-control (#'sessions/sdk-object->map session))))))
 
 (deftest session-prompt-cache-options-and-stream-options-reach-params
   (let [create (#'sessions/->session-create-params

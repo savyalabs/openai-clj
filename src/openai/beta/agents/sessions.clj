@@ -17,6 +17,8 @@
                                                     SessionCreateParams$Metadata
                                                     SessionCreateParams$PromptCacheOptions
                                                     SessionCreateParams$Review
+                                                    SessionCreateParams$SpendControl
+                                                    SessionCreateParams$SpendControl$Builder
                                                     SessionCreateParams$StreamOptions
                                                     SessionDeleteParams
                                                     SessionListPage
@@ -27,7 +29,9 @@
                                                     SessionUpdateParams
                                                     SessionUpdateParams$Metadata
                                                     SessionUpdateParams$PromptCacheOptions
-                                                    SessionUpdateParams$Review)
+                                                    SessionUpdateParams$Review
+                                                    SessionUpdateParams$SpendControl
+                                                    SessionUpdateParams$SpendControl$Builder)
            (com.openai.services.blocking BetaService)
            (com.openai.services.blocking.beta AgentService)
            (com.openai.services.blocking.beta.agents SessionService)))
@@ -110,6 +114,18 @@
       (.putAdditionalProperty b (wire-name k) (str v)))
     (.build b)))
 
+(defn- ->create-spend-control ^SessionCreateParams$SpendControl [{:keys [limit]}]
+  (let [^SessionCreateParams$SpendControl$Builder b
+        (SessionCreateParams$SpendControl/builder)]
+    (when (some? limit) (.limit b (long limit)))
+    (.build b)))
+
+(defn- ->update-spend-control ^SessionUpdateParams$SpendControl [{:keys [limit]}]
+  (let [^SessionUpdateParams$SpendControl$Builder b
+        (SessionUpdateParams$SpendControl/builder)]
+    (when (some? limit) (.limit b (long limit)))
+    (.build b)))
+
 (defn- ->create-prompt-cache-options ^SessionCreateParams$PromptCacheOptions [m]
   (sdk-value m SessionCreateParams$PromptCacheOptions))
 
@@ -120,7 +136,7 @@
   (sdk-value m SessionCreateParams$StreamOptions))
 
 (defn- ->session-create-params ^SessionCreateParams
-  [{:keys [environment agent agent-id input metadata review vault-ids prompt-cache-options stream-options] :as req}]
+  [{:keys [environment agent agent-id input metadata review spend-control vault-ids prompt-cache-options stream-options] :as req}]
   (when-not environment (impl/missing-key! :environment))
   (when-not (or agent-id agent) (impl/missing-key! :agent-id-or-agent))
   (let [b (SessionCreateParams/builder)]
@@ -130,11 +146,12 @@
     (when input (.input b (->input input)))
     (when metadata (.metadata b (->create-metadata metadata)))
     (when review (.review b (SessionCreateParams$Review/of (impl/enum-name review))))
+    (when spend-control (.spendControl b (->create-spend-control spend-control)))
     (when prompt-cache-options (.promptCacheOptions b (->create-prompt-cache-options prompt-cache-options)))
     (when stream-options (.streamOptions b (->stream-options stream-options)))
     (when vault-ids (.vaultIds b ^java.util.List (vec vault-ids)))
     (doseq [[k v] (dissoc req :environment :agent :agent-id :input
-                          :metadata :review :vault-ids :prompt-cache-options :stream-options)]
+                          :metadata :review :spend-control :vault-ids :prompt-cache-options :stream-options)]
       (.putAdditionalBodyProperty b (wire-name k) (json-value v)))
     (.build b)))
 
@@ -145,14 +162,15 @@
       (.build)))
 
 (defn- ->session-update-params ^SessionUpdateParams
-  [session-id {:keys [metadata review prompt-cache-options] :as req}]
+  [session-id {:keys [metadata review spend-control prompt-cache-options] :as req}]
   (when-not session-id (impl/missing-key! :session-id))
   (let [b (SessionUpdateParams/builder)]
     (.sessionId b ^String session-id)
     (when metadata (.metadata b (->update-metadata metadata)))
     (when review (.review b (SessionUpdateParams$Review/of (impl/enum-name review))))
+    (when spend-control (.spendControl b (->update-spend-control spend-control)))
     (when prompt-cache-options (.promptCacheOptions b (->update-prompt-cache-options prompt-cache-options)))
-    (doseq [[k v] (dissoc req :metadata :review :prompt-cache-options)]
+    (doseq [[k v] (dissoc req :metadata :review :spend-control :prompt-cache-options)]
       (.putAdditionalBodyProperty b (wire-name k) (json-value v)))
     (.build b)))
 

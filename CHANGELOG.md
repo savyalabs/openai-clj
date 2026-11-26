@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-25
+
+### Added
+
+- Wrap SDK Chat Completions tool-running, custom-request, and vector-store
+  polling helpers.
+- Support Agent Session budget-reached events and budget-exceeded turn errors.
+
+### Changed
+
+- Agent Session `:spend-control` is typed again.
+- Track `com.openai/openai-java` and `openai-java-bedrock` 4.113.0.
+
 ## [0.52.0] - 2026-11-22
 
 ### Added
